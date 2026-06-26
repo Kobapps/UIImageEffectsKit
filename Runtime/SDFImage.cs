@@ -28,6 +28,11 @@ namespace SDFImageKit
         // Polymorphic, reorderable effect stack. Bottom of the list renders at the back.
         [SerializeReference] private List<SDFEffect> m_Stack = new List<SDFEffect>();
 
+        // Fixed unit that effect sizes (outline/glow width, dilate, softness) are authored in — a
+        // fraction of the sprite's smaller side. The field may be baked with a larger spread to fit a
+        // big glow; effect params are scaled by ReferenceSpread/field.spread so sizes stay constant.
+        internal const float ReferenceSpread = 0.15f;
+
         [Header("Runtime generation")]
         [Tooltip("If no baked field is available, generate one at runtime (cached and shared).")]
         [SerializeField] private bool m_GenerateAtRuntime = true;
@@ -45,6 +50,7 @@ namespace SDFImageKit
         private SDFData m_LastBaked;
         private SDFGenerationParams m_LastParams;
         private bool m_LastGenerate;
+        private float m_LastGlowKey;          // max glow width baked into the runtime field
         private bool m_HasResolvedOnce;
         private bool m_SettingsDirty = true;
 
@@ -170,11 +176,15 @@ namespace SDFImageKit
         private void EnsureDataResolved()
         {
             var s = ActiveSprite;
+            // When runtime generation is available the field grows to fit the glow (and a baked field
+            // can fall back to a runtime one for a big glow), so re-resolve when the glow changes.
+            float glowKey = m_GenerateAtRuntime ? MaxGlowWidth() : 0f;
             bool changed = !m_HasResolvedOnce
                 || s != m_LastResolvedSprite
                 || m_BakedData != m_LastBaked
                 || m_GenerateAtRuntime != m_LastGenerate
-                || !m_RuntimeParams.Equals(m_LastParams);
+                || !m_RuntimeParams.Equals(m_LastParams)
+                || glowKey != m_LastGlowKey;
 
             if (changed)
             {
@@ -183,6 +193,7 @@ namespace SDFImageKit
                 m_LastBaked = m_BakedData;
                 m_LastGenerate = m_GenerateAtRuntime;
                 m_LastParams = m_RuntimeParams;
+                m_LastGlowKey = glowKey;
                 m_HasResolvedOnce = true;
                 m_SettingsDirty = true;
             }
@@ -249,8 +260,9 @@ namespace SDFImageKit
                 float fw = Mathf.Max(1, data.field.width), fh = Mathf.Max(1, data.field.height);
                 float contentW = Mathf.Max(1f, fw * (1f - 2f * pad.x));
                 float contentH = Mathf.Max(1f, fh * (1f - 2f * pad.y));
-                float spreadPix = Mathf.Max(0.5f, data.spread * Mathf.Min(contentW, contentH));
-                float reachPix = glow * spreadPix;            // texels the glow reaches past the edge
+                // Glow reach is absolute (width x ReferenceSpread), independent of the baked spread.
+                float refPix = Mathf.Max(0.5f, ReferenceSpread * Mathf.Min(contentW, contentH));
+                float reachPix = glow * refPix;               // texels the glow reaches past the edge
                 // +15% so the halo fully fades before the mesh edge (no hard clip).
                 kx = Mathf.Max(kx, reachPix / contentW * 1.15f);
                 ky = Mathf.Max(ky, reachPix / contentH * 1.15f);
@@ -311,18 +323,39 @@ namespace SDFImageKit
 
             if (s != null)
             {
-                if (m_BakedData != null && m_BakedData.IsValid)
+                // Distance the largest glow needs the field to cover (absolute, in sprite fractions).
+                float reach = MaxGlowWidth() * ReferenceSpread;
+                bool bakedOk = m_BakedData != null && m_BakedData.IsValid;
+                bool bakedCoversGlow = bakedOk && reach <= m_BakedData.spread + 1e-3f;
+
+                if (bakedOk && bakedCoversGlow)
                 {
+                    // Fast path: the baked field already reaches far enough for the glow.
                     newData = m_BakedData;
                     fieldIsSource = true;
                 }
                 else if (m_GenerateAtRuntime && s.texture != null)
                 {
+                    // No baked field, OR the glow is bigger than the baked field can represent: generate
+                    // a runtime field grown to actually contain the glow, so it stays shape-following
+                    // instead of falling back to the (boxy) far-field extrapolation. spread = encoding
+                    // range, padding = spatial coverage; both must reach the glow.
                     acqTex = s.texture;
                     acqParams = m_RuntimeParams;
+                    float r = Mathf.Min(1f, reach * 1.05f);
+                    if (r > acqParams.spread) acqParams.spread = r;
+                    if (r > acqParams.padding) acqParams.padding = r;
                     newData = SDFRuntimeCache.Acquire(acqTex, acqParams);
                     acquired = newData != null;
                     fieldIsSource = false;
+                }
+                else if (bakedOk)
+                {
+                    // Glow exceeds the baked field but runtime generation is off — use the baked field;
+                    // the shader extrapolates the overflow (re-embed with a larger Spread for an exact,
+                    // shape-following large glow).
+                    newData = m_BakedData;
+                    fieldIsSource = true;
                 }
             }
 
@@ -399,6 +432,11 @@ namespace SDFImageKit
                 mat.SetVector(SDFShaderIDs.SDFExtend, ComputeSDFExtend());
             }
 
+            // Effect sizes are authored in fixed reference units; the field may be baked with a larger
+            // spread (e.g. to fit a big glow), so scale the distance params into the field's range.
+            float distScale = (m_ActiveData != null && m_ActiveData.spread > 1e-4f)
+                ? ReferenceSpread / m_ActiveData.spread : 1f;
+
             // Pack enabled layers back-to-front: index 0 = bottom of list = drawn first (back).
             int n = 0;
             if (m_Stack != null)
@@ -408,7 +446,7 @@ namespace SDFImageKit
                     var fx = m_Stack[i];
                     if (fx == null || !fx.enabled) continue;
                     m_FxColors[n] = fx.EffectColor;
-                    m_FxParams[n] = fx.PackedParams;
+                    m_FxParams[n] = fx.PackedParamsScaled(distScale);
                     m_FxTypes[n] = (int)fx.Kind;
                     n++;
                 }

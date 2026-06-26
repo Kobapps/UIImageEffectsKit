@@ -5,6 +5,19 @@ All notable changes to **UI Image Effects Kit** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-06-26
+
+### Fixed
+- **Large glows now follow the sprite silhouette instead of turning into a square.** A glow wider than
+  the baked field used to extrapolate the clamped distance field by distance-to-the-field-*box*, which
+  read as a rounded square far out. Now the field is grown to actually contain the glow so it stays
+  shape-following: a runtime-generated field auto-scales its spread/padding to the largest glow, and a
+  sprite with an embedded field automatically falls back to a runtime field when a glow exceeds what the
+  baked one can represent (turn off **Generate At Runtime** to keep the embedded field, or re-embed with
+  a larger **Spread**). Effect sizes are now authored in a fixed reference unit, so they stay constant
+  regardless of the field's baked spread. The residual extrapolation (for the no-runtime case) now falls
+  off radially (a soft round halo) rather than as a box.
+
 ## [1.1.0] - 2026-06-26
 
 ### Added
@@ -39,5 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uniforms; the effect data is now re-applied to the wrapped material in
   `GetModifiedMaterial`, so masked SDF images match unmasked ones.
 
+[1.1.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.1.1
 [1.1.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.1.0
 [1.0.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.0.0

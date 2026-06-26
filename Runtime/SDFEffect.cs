@@ -40,6 +40,16 @@ namespace SDFImageKit
 
         /// <summary>Four params packed for the shader; meaning depends on <see cref="Kind"/>.</summary>
         public abstract Vector4 PackedParams { get; }
+
+        /// <summary>
+        /// <see cref="PackedParams"/> with the <b>distance-like</b> components multiplied by
+        /// <paramref name="k"/>. All effect sizes are authored in a fixed reference unit; the field
+        /// may be baked with a different <c>spread</c> (e.g. enlarged to fit a big glow), so the
+        /// component sends the same on-screen size whatever the field range. Components that are NOT
+        /// distances (mode flags, exponents, sprite-relative offsets) are left untouched. Default
+        /// scales nothing.
+        /// </summary>
+        public virtual Vector4 PackedParamsScaled(float k) => PackedParams;
     }
 
     /// <summary>The sprite itself. Singleton. Textured (real sprite) or SDF silhouette.</summary>
@@ -63,6 +73,8 @@ namespace SDFImageKit
         public override Color EffectColor => tint;
         public override Vector4 PackedParams =>
             new Vector4(mode == FaceMode.Silhouette ? 1f : 0f, dilate, softness, 0f);
+        public override Vector4 PackedParamsScaled(float k) =>
+            new Vector4(mode == FaceMode.Silhouette ? 1f : 0f, dilate * k, softness * k, 0f);
     }
 
     /// <summary>A border that traces the alpha silhouette.</summary>
@@ -77,6 +89,7 @@ namespace SDFImageKit
         public override SDFEffectKind Kind => SDFEffectKind.Outline;
         public override Color EffectColor => color;
         public override Vector4 PackedParams => new Vector4(width, softness, 0f, 0f);
+        public override Vector4 PackedParamsScaled(float k) => new Vector4(width * k, softness * k, 0f, 0f);
     }
 
     /// <summary>An offset, softened drop shadow / underlay.</summary>
@@ -94,6 +107,9 @@ namespace SDFImageKit
         public override string DisplayName => "Shadow / Underlay";
         public override Color EffectColor => color;
         public override Vector4 PackedParams => new Vector4(offset.x, offset.y, softness, dilate);
+        // offset is a fraction of the sprite (not the spread), so it is NOT scaled.
+        public override Vector4 PackedParamsScaled(float k) =>
+            new Vector4(offset.x, offset.y, softness * k, dilate * k);
     }
 
     /// <summary>A soft outer (and optionally inner) glow.</summary>
@@ -113,6 +129,8 @@ namespace SDFImageKit
         public override SDFEffectKind Kind => SDFEffectKind.Glow;
         public override Color EffectColor => color;
         public override Vector4 PackedParams => new Vector4(width, power, inner, 0f);
+        // power is an exponent (not a distance), so it is NOT scaled.
+        public override Vector4 PackedParamsScaled(float k) => new Vector4(width * k, power, inner * k, 0f);
     }
 
     /// <summary>Helpers shared by runtime + editor.</summary>

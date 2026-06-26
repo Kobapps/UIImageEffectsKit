@@ -190,15 +190,24 @@ Shader "UI/SDF Image"
                     }
                     else // Glow: width = p.x, power = p.y, inner = p.z
                     {
-                        // Extend the signed distance beyond the baked field so the glow can reach
-                        // past the sprite rect. The field is clamp-sampled, so at the field edge `t`
-                        // holds the boundary distance; we keep decreasing it by how far this fragment
-                        // lies OUTSIDE the field box (converted to spread units via _SDFExtend). Inside
-                        // the field (q == 0) this is exactly `t`, so nearby glow is unchanged.
-                        float2 q = max(0.0, max(-sdfUV, sdfUV - 1.0));
-                        float te = t - length(q * _SDFExtend.xy);
-                        float gd = saturate((te + p.x) / max(p.x + p.z, 1e-3));
-                        float gcov = pow(gd, max(p.y, 1e-3));
+                        // Extend the signed distance beyond the baked field so the glow can reach past
+                        // the sprite rect. Inside the field (q == 0) `te == t`, so the near glow follows
+                        // the real silhouette. Outside, the clamped field carries no shape, so we fall
+                        // off RADIALLY from the sprite centre (elliptical, per-axis via _SDFExtend) —
+                        // a soft round halo — instead of by distance-to-the-field-box, which would read
+                        // as a square. We blend box->radial with how far outside the box we are so the
+                        // two regions join smoothly.
+                        float2 center  = 0.5 * _SDFRect.xy + _SDFRect.zw;          // sprite centre (SDF-UV)
+                        float2 halfExt = 0.5 * abs(_SDFRect.xy) * _SDFExtend.xy;   // sprite half-size (spread units)
+                        float2 rel     = (sdfUV - center) * _SDFExtend.xy;         // offset from centre (spread units)
+                        float2 q       = max(0.0, max(-sdfUV, sdfUV - 1.0));
+                        float boxD     = length(q * _SDFExtend.xy);                // distance outside the field box
+                        float radD     = max(length(rel) - min(halfExt.x, halfExt.y), 0.0);
+                        float ext      = lerp(boxD, max(boxD, radD),
+                                              saturate(boxD / max(min(halfExt.x, halfExt.y), 1e-3)));
+                        float te       = t - ext;
+                        float gd       = saturate((te + p.x) / max(p.x + p.z, 1e-3));
+                        float gcov     = pow(gd, max(p.y, 1e-3));
                         layer = half4(c.rgb, c.a * gcov);
                     }
 

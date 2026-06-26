@@ -110,12 +110,19 @@ sdf.MarkEffectsDirty();   // push changes to the material
 | **Face** | `mode` (Textured / Silhouette), `dilate`, `softness` | The sprite itself. *Textured* shows the real art (default); *Silhouette* ("Crisp Face") renders the SDF shape so it stays sharp at any zoom. Singleton, pinned to the front. |
 | **Outline** | `color`, `width`, `softness` | A border that hugs the silhouette. Repeatable — stack two for an inline + outline. |
 | **Shadow / Underlay** | `color`, `offset`, `softness`, `dilate` | A soft offset copy behind the face. Repeatable. |
-| **Glow** | `color`, `width`, `power`, `inner` | An outward falloff. `power` shapes the curve; stack glows for neon. Repeatable. `width` can go past `1` to push the halo **well beyond the sprite rect** — the mesh and field are extended automatically, no re-bake. |
+| **Glow** | `color`, `width`, `power`, `inner` | An outward falloff. `power` shapes the curve; stack glows for neon. Repeatable. `width` can go past `1` to push the halo **well beyond the sprite rect**, and it stays **shape-following** (see below). |
 
-All sizes are **fractions of the field's *spread*** (itself a fraction of the sprite's smaller side),
-so a `0.3` outline looks identical at any zoom, display size, or field resolution. A Glow's `width` is a
-multiple of spread and may exceed `1`: the component grows the rendered mesh and the shader extrapolates
-the distance field so the glow extends past the RectTransform with a smooth falloff (no clipping).
+All effect sizes are in a **fixed reference unit** (a fraction of the sprite's smaller side), so a `0.3`
+outline looks identical at any zoom, display size, or field resolution — and independent of how the
+field was baked.
+
+A Glow's `width` can exceed `1` to reach far past the RectTransform. To keep a big glow hugging the
+silhouette (rather than fading to a blob), the field must hold distance data that far out, so the kit
+**grows the field to fit the glow automatically**: a runtime-generated field scales its spread/padding
+to the largest glow, and a sprite with an **embedded** field falls back to a runtime field when a glow
+is bigger than the baked one can represent. (Turn off **Generate At Runtime** to always keep the embedded
+field — a glow beyond its baked range then falls off as a soft round halo — or re-embed the texture with
+a larger **Spread** to bake the bigger range in.)
 
 ---
 
