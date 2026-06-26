@@ -1,0 +1,20 @@
+{
+    "name": "SDFImageKit.Editor",
+    "rootNamespace": "SDFImageKit.EditorTools",
+    "references": [
+        "SDFImageKit.Runtime",
+        "UnityEngine.UI",
+        "UnityEditor.UI"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

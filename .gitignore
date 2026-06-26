@@ -1,0 +1,25 @@
+# This repository is a UPM package (not a full Unity project), so there is no
+# Library/, Temp/, obj/ or Build/ to ignore here. These entries just keep stray
+# editor/OS artifacts out if the package is ever opened inside a project copy.
+
+# Unity project artifacts (in case the package is cloned into an Assets/ folder)
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Ll]ogs/
+[Mm]emoryCaptures/
+[Uu]serSettings/
+
+# IDE / OS
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.sln
+*.user
+.DS_Store
+Thumbs.db
+
+# Never ship the meta of an ignored folder
+!*.meta

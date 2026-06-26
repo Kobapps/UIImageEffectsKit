@@ -1,0 +1,21 @@
+{
+    "name": "SDFImageKit.Samples.Editor",
+    "rootNamespace": "SDFImageKit.Samples",
+    "references": [
+        "SDFImageKit.Runtime",
+        "SDFImageKit.Editor",
+        "UnityEngine.UI",
+        "UnityEditor.UI"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

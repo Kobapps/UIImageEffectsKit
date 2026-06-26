@@ -1,0 +1,20 @@
+# Normalize line endings for text; treat Unity assets as binary where needed.
+# NOTE: deliberately NOT using Git LFS — Unity's Package-Manager "add from git URL"
+# installer does not reliably fetch LFS objects, and the demo sprites are tiny.
+
+* text=auto eol=lf
+
+# Source & text assets
+*.cs        text eol=lf diff=csharp
+*.shader    text eol=lf
+*.compute   text eol=lf
+*.asmdef    text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.meta      text eol=lf merge=unity_yaml
+
+# Binary assets
+*.png       binary
+*.jpg       binary
+*.tga       binary
+*.psd       binary

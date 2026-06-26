@@ -1,0 +1,92 @@
+// Jump-Flooding signed distance field generator.
+// Computes, per field texel, the nearest "inside" seed (rg) and nearest "outside" seed (ba),
+// then resolves a signed distance using the same convention as the CPU baker:
+//   value 0.5 = edge, >0.5 = inside, <0.5 = outside.
+#pragma kernel KInit
+#pragma kernel KJump
+#pragma kernel KResolve
+
+Texture2D<float4>   _Source;     // ARGB32 copy of the source texture (Load-able)
+RWTexture2D<float4> _Read;       // ping
+RWTexture2D<float4> _Write;      // pong
+RWTexture2D<float4> _Out;        // encoded field
+
+int2  _Size;        // field resolution
+int2  _SrcSize;     // source resolution
+int   _Step;        // current jump step (texels)
+float _Range;       // distance range in field texels
+float _Threshold;   // alpha boundary [0..1]
+
+static const float BIG = 1e20;
+
+bool InsideAt(int2 px)
+{
+    int2 sp = int2(
+        clamp((int)(((px.x + 0.5) / _Size.x) * _SrcSize.x), 0, _SrcSize.x - 1),
+        clamp((int)(((px.y + 0.5) / _Size.y) * _SrcSize.y), 0, _SrcSize.y - 1));
+    return _Source.Load(int3(sp, 0)).a >= _Threshold;
+}
+
+[numthreads(8,8,1)]
+void KInit(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _Size.x || (int)id.y >= _Size.y) return;
+    int2 px = int2(id.xy);
+    bool inside = InsideAt(px);
+    float2 self = float2(px);
+    // rg = nearest inside seed, ba = nearest outside seed. (-1,-1) means "none yet".
+    float2 inSeed  = inside ? self : float2(-1, -1);
+    float2 outSeed = inside ? float2(-1, -1) : self;
+    _Read[id.xy] = float4(inSeed, outSeed);
+}
+
+void Consider(int2 px, float2 c, inout float2 bestIn, inout float bestInD,
+              inout float2 bestOut, inout float bestOutD)
+{
+    if (px.x < 0 || px.y < 0 || px.x >= _Size.x || px.y >= _Size.y) return;
+    float4 s = _Read[px];
+    if (s.x >= 0)
+    {
+        float d = distance(c, s.xy);
+        if (d < bestInD) { bestInD = d; bestIn = s.xy; }
+    }
+    if (s.z >= 0)
+    {
+        float d = distance(c, s.zw);
+        if (d < bestOutD) { bestOutD = d; bestOut = s.zw; }
+    }
+}
+
+[numthreads(8,8,1)]
+void KJump(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _Size.x || (int)id.y >= _Size.y) return;
+    int2 px = int2(id.xy);
+    float2 c = float2(px);
+
+    float2 bestIn = float2(-1, -1), bestOut = float2(-1, -1);
+    float bestInD = BIG, bestOutD = BIG;
+
+    [unroll]
+    for (int oy = -1; oy <= 1; oy++)
+        [unroll]
+        for (int ox = -1; ox <= 1; ox++)
+            Consider(px + int2(ox, oy) * _Step, c, bestIn, bestInD, bestOut, bestOutD);
+
+    _Write[id.xy] = float4(bestIn, bestOut);
+}
+
+[numthreads(8,8,1)]
+void KResolve(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _Size.x || (int)id.y >= _Size.y) return;
+    int2 px = int2(id.xy);
+    float2 c = float2(px) + 0.5;
+
+    float4 s = _Read[px];
+    float dIn  = s.x >= 0 ? distance(c, s.xy + 0.5) : BIG;
+    float dOut = s.z >= 0 ? distance(c, s.zw + 0.5) : BIG;
+    float sd = dOut - dIn;          // positive inside, negative outside
+    float e = saturate(0.5 + sd / (2.0 * max(_Range, 1e-4)));
+    _Out[id.xy] = float4(e, e, e, e);
+}

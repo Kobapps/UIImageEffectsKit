@@ -1,0 +1,37 @@
+{
+  "name": "com.kobapps.uiimageeffectskit",
+  "version": "1.0.0",
+  "displayName": "UI Image Effects Kit",
+  "description": "Surface-correct, resolution-independent outline / shadow / glow for uGUI Images using cached Signed Distance Fields. A drop-in component that extends UnityEngine.UI.Image with a reorderable effect stack, crisp scaling at any zoom, full Mask / RectMask2D support, atlas support, and one-click SDF embedding (GPU or CPU bake, all platforms).",
+  "unity": "2021.3",
+  "dependencies": {
+    "com.unity.ugui": "1.0.0"
+  },
+  "keywords": [
+    "ui",
+    "ugui",
+    "sdf",
+    "signed-distance-field",
+    "outline",
+    "shadow",
+    "glow",
+    "image",
+    "effects"
+  ],
+  "author": {
+    "name": "Kobapps",
+    "email": "kobi.chariski@gmail.com",
+    "url": "https://github.com/Kobapps"
+  },
+  "license": "MIT",
+  "documentationUrl": "https://github.com/Kobapps/UIImageEffectsKit#readme",
+  "changelogUrl": "https://github.com/Kobapps/UIImageEffectsKit/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/Kobapps/UIImageEffectsKit/blob/main/LICENSE.md",
+  "samples": [
+    {
+      "displayName": "Effect Showcase",
+      "description": "Builds a scene of stacked-effect examples (plain, outline, double outline, drop shadow, glow, multi-glow neon, combined, crisp face) using the bundled demo sprites. Run via Tools ▸ UI Image Effects Kit ▸ Build Effect Showcase.",
+      "path": "Samples~/EffectShowcase"
+    }
+  ]
+}
