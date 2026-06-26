@@ -5,6 +5,22 @@ All notable changes to **UI Image Effects Kit** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-26
+
+### Added
+- **Effect-control API** on `SDFImage` for driving effects from code — type-addressed and
+  auto-refreshing (no manual `MarkEffectsDirty()`):
+  - Query: `GetEffect<T>()`, `TryGetEffect<T>(out e)`, `GetEffects<T>()`.
+  - Edit: `Modify<T>(e => …)`, `ModifyAll<T>(e => …)`.
+  - Toggle: `SetEffectEnabled<T>(bool)`, `SetEffectsEnabled<T>(bool)`, `SetEffectEnabled(effect, bool)`.
+  - Colour: `SetEffectColor<T>(Color)`, `SetEffectsColor<T>(Color)` (`SDFEffect.EffectColor` is now settable).
+  - Stack: `AddEffect(effect, front)`, `RemoveEffect(effect)`, `RemoveEffects<T>()`, `ClearEffects()`.
+
+### Fixed
+- README "From code" example had the effect order reversed (it added the Face last, putting it behind
+  the outline/glow). Corrected: index `0` of `effects` is the front; `AddEffect<T>()` adds to the front,
+  `AddEffect(instance)` to the back.
+
 ## [1.1.1] - 2026-06-26
 
 ### Fixed
@@ -52,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uniforms; the effect data is now re-applied to the wrapped material in
   `GetModifiedMaterial`, so masked SDF images match unmasked ones.
 
+[1.2.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.2.0
 [1.1.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.1.1
 [1.1.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.1.0
 [1.0.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.0.0

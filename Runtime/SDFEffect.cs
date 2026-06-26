@@ -35,8 +35,8 @@ namespace SDFImageKit
         /// <summary>Label shown in the inspector stack.</summary>
         public virtual string DisplayName => Kind.ToString();
 
-        /// <summary>Colour passed to the shader for this layer.</summary>
-        public abstract Color EffectColor { get; }
+        /// <summary>Primary colour of this layer (its <c>color</c> / <c>tint</c> field). Get or set.</summary>
+        public abstract Color EffectColor { get; set; }
 
         /// <summary>Four params packed for the shader; meaning depends on <see cref="Kind"/>.</summary>
         public abstract Vector4 PackedParams { get; }
@@ -70,7 +70,7 @@ namespace SDFImageKit
 
         public override SDFEffectKind Kind => SDFEffectKind.Face;
         public override bool AllowsMultiple => false;
-        public override Color EffectColor => tint;
+        public override Color EffectColor { get => tint; set => tint = value; }
         public override Vector4 PackedParams =>
             new Vector4(mode == FaceMode.Silhouette ? 1f : 0f, dilate, softness, 0f);
         public override Vector4 PackedParamsScaled(float k) =>
@@ -87,7 +87,7 @@ namespace SDFImageKit
         [Range(0f, 1f)] public float softness = 0f;
 
         public override SDFEffectKind Kind => SDFEffectKind.Outline;
-        public override Color EffectColor => color;
+        public override Color EffectColor { get => color; set => color = value; }
         public override Vector4 PackedParams => new Vector4(width, softness, 0f, 0f);
         public override Vector4 PackedParamsScaled(float k) => new Vector4(width * k, softness * k, 0f, 0f);
     }
@@ -105,7 +105,7 @@ namespace SDFImageKit
 
         public override SDFEffectKind Kind => SDFEffectKind.Shadow;
         public override string DisplayName => "Shadow / Underlay";
-        public override Color EffectColor => color;
+        public override Color EffectColor { get => color; set => color = value; }
         public override Vector4 PackedParams => new Vector4(offset.x, offset.y, softness, dilate);
         // offset is a fraction of the sprite (not the spread), so it is NOT scaled.
         public override Vector4 PackedParamsScaled(float k) =>
@@ -127,7 +127,7 @@ namespace SDFImageKit
         public float inner = 0f;
 
         public override SDFEffectKind Kind => SDFEffectKind.Glow;
-        public override Color EffectColor => color;
+        public override Color EffectColor { get => color; set => color = value; }
         public override Vector4 PackedParams => new Vector4(width, power, inner, 0f);
         // power is an exponent (not a distance), so it is NOT scaled.
         public override Vector4 PackedParamsScaled(float k) => new Vector4(width * k, power, inner * k, 0f);

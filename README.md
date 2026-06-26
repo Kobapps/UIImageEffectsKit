@@ -82,24 +82,47 @@ Packages/com.kobapps.uiimageeffectskit/
 
 ### From code
 
+Build a stack and tweak it at runtime. Effects are addressed **by type**, and every helper refreshes
+the render automatically — you never call `MarkEffectsDirty()` yourself.
+
 ```csharp
 using SDFImageKit;
 using UnityEngine;
-using UnityEngine.UI;
 
-var go  = new GameObject("Icon", typeof(SDFImage));
-var sdf = go.GetComponent<SDFImage>();
+var sdf = new GameObject("Icon", typeof(SDFImage)).GetComponent<SDFImage>();
 sdf.sprite = mySprite;
 
-sdf.effects.Clear();
-sdf.effects.Add(new SDFGlowEffect    { color = Color.cyan,  width = 0.8f, power = 1.5f }); // back
-sdf.effects.Add(new SDFOutlineEffect { color = Color.white, width = 0.3f });               // middle
-sdf.effects.Add(new SDFFaceEffect());                                   // the sprite itself, drawn in front
-sdf.MarkEffectsDirty();   // push changes to the material
+// Build a stack. AddEffect<T>() adds on top (front); AddEffect(instance) adds behind (back).
+sdf.AddEffect<SDFFaceEffect>();                                              // the sprite, on top
+sdf.AddEffect(new SDFOutlineEffect { color = Color.white, width = 0.3f });   // behind the face
+sdf.AddEffect(new SDFGlowEffect    { color = Color.cyan,  width = 1.2f });   // behind that
+
+// --- control effects later, from anywhere ---
+sdf.SetEffectEnabled<SDFGlowEffect>(false);          // turn the glow off
+sdf.SetEffectColor<SDFOutlineEffect>(Color.red);     // recolour the outline
+sdf.Modify<SDFGlowEffect>(g => { g.width = 2.5f; g.color = Color.magenta; }); // change any fields
+
+// query / bulk ops
+if (sdf.TryGetEffect<SDFOutlineEffect>(out var o)) o.color = Color.yellow;  // (then sdf.MarkEffectsDirty())
+sdf.SetEffectsEnabled<SDFGlowEffect>(true);          // every glow (you can stack several)
+sdf.RemoveEffects<SDFShadowEffect>();                // drop all shadows
 ```
 
-> Effects are stored bottom-to-top: the **last** item in the list draws in **front**. Add the Face
-> last (or let the inspector pin it) so the artwork sits over its outline/glow/shadow.
+**Effect-control API** (all auto-refresh, all chainable, all address effects by type):
+
+| Method | Does |
+|---|---|
+| `GetEffect<T>()` / `TryGetEffect<T>(out e)` / `GetEffects<T>()` | find the first / any / all of a type |
+| `Modify<T>(e => …)` / `ModifyAll<T>(e => …)` | edit the first / every effect of a type, then refresh |
+| `SetEffectEnabled<T>(bool)` / `SetEffectsEnabled<T>(bool)` | toggle the first / every effect of a type |
+| `SetEffectEnabled(effect, bool)` | toggle a specific instance |
+| `SetEffectColor<T>(Color)` / `SetEffectsColor<T>(Color)` | recolour the first / every effect of a type |
+| `AddEffect<T>()` / `AddEffect(effect, front)` | add on top / at a chosen end |
+| `RemoveEffect(effect)` / `RemoveEffects<T>()` / `ClearEffects()` | remove one / all of a type / everything |
+
+> **Order:** index `0` of `effects` is the **front** (top); the last item is the **back**. `AddEffect<T>()`
+> inserts at the front, `AddEffect(instance)` appends at the back. The `effects` list is still public for
+> full control — just call `MarkEffectsDirty()` after editing it directly.
 
 ---
 

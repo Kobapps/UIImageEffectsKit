@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -65,8 +66,12 @@ namespace SDFImageKit
         // Public API
         // ====================================================================================
 
-        /// <summary>The effect stack. Bottom of the list renders at the back. Mutate, then call
-        /// <see cref="MarkEffectsDirty"/> to refresh.</summary>
+        /// <summary>
+        /// The raw effect stack. <b>Index 0 is the front (top); the last item is the back.</b> Editing
+        /// this list directly needs a follow-up <see cref="MarkEffectsDirty"/> — for most code prefer the
+        /// helpers below (<see cref="GetEffect{T}"/>, <see cref="Modify{T}"/>, <see cref="SetEffectEnabled{T}"/>,
+        /// <see cref="SetEffectColor{T}"/>, …), which refresh automatically.
+        /// </summary>
         public List<SDFEffect> effects => m_Stack;
 
         public SDFData bakedData
@@ -93,13 +98,123 @@ namespace SDFImageKit
             set { m_RuntimeParams = value; MarkEffectsDirty(); }
         }
 
-        /// <summary>Append an effect to the front of the stack and refresh.</summary>
+        // ------------------------------------------------------------------------------------
+        // Effect control. Everything here refreshes the render automatically — you never need to
+        // call MarkEffectsDirty() yourself. Effects are addressed by type; methods named "…s" or
+        // "All" act on every effect of that type (the stack may hold several outlines/glows/shadows).
+        // ------------------------------------------------------------------------------------
+
+        /// <summary>First effect of type <typeparamref name="T"/> in the stack, or <c>null</c>.</summary>
+        public T GetEffect<T>() where T : SDFEffect
+        {
+            for (int i = 0; i < m_Stack.Count; i++)
+                if (m_Stack[i] is T t) return t;
+            return null;
+        }
+
+        /// <summary>True if an effect of type <typeparamref name="T"/> exists; outputs the first one.</summary>
+        public bool TryGetEffect<T>(out T effect) where T : SDFEffect
+        {
+            effect = GetEffect<T>();
+            return effect != null;
+        }
+
+        /// <summary>Every effect of type <typeparamref name="T"/> (front-to-back), as a new list.</summary>
+        public List<T> GetEffects<T>() where T : SDFEffect
+        {
+            var list = new List<T>();
+            for (int i = 0; i < m_Stack.Count; i++)
+                if (m_Stack[i] is T t) list.Add(t);
+            return list;
+        }
+
+        /// <summary>
+        /// Edit the first effect of type <typeparamref name="T"/>, then refresh. No-op if none exists.
+        /// Example: <c>sdf.Modify&lt;SDFOutlineEffect&gt;(o => { o.color = Color.red; o.width = 0.4f; });</c>
+        /// </summary>
+        public SDFImage Modify<T>(Action<T> edit) where T : SDFEffect
+        {
+            var fx = GetEffect<T>();
+            if (fx != null && edit != null) { edit(fx); MarkEffectsDirty(); }
+            return this;
+        }
+
+        /// <summary>Edit every effect of type <typeparamref name="T"/>, then refresh. No-op if none.</summary>
+        public SDFImage ModifyAll<T>(Action<T> edit) where T : SDFEffect
+        {
+            bool any = false;
+            if (edit != null)
+                for (int i = 0; i < m_Stack.Count; i++)
+                    if (m_Stack[i] is T t) { edit(t); any = true; }
+            if (any) MarkEffectsDirty();
+            return this;
+        }
+
+        /// <summary>Enable or disable the first effect of type <typeparamref name="T"/>.</summary>
+        public SDFImage SetEffectEnabled<T>(bool enabled) where T : SDFEffect
+            => Modify<T>(e => e.enabled = enabled);
+
+        /// <summary>Enable or disable every effect of type <typeparamref name="T"/>.</summary>
+        public SDFImage SetEffectsEnabled<T>(bool enabled) where T : SDFEffect
+            => ModifyAll<T>(e => e.enabled = enabled);
+
+        /// <summary>Enable or disable a specific effect instance.</summary>
+        public SDFImage SetEffectEnabled(SDFEffect effect, bool enabled)
+        {
+            if (effect != null && effect.enabled != enabled) { effect.enabled = enabled; MarkEffectsDirty(); }
+            return this;
+        }
+
+        /// <summary>Set the colour of the first effect of type <typeparamref name="T"/>.</summary>
+        public SDFImage SetEffectColor<T>(Color color) where T : SDFEffect
+            => Modify<T>(e => e.EffectColor = color);
+
+        /// <summary>Set the colour of every effect of type <typeparamref name="T"/>.</summary>
+        public SDFImage SetEffectsColor<T>(Color color) where T : SDFEffect
+            => ModifyAll<T>(e => e.EffectColor = color);
+
+        /// <summary>Add a new effect at the <b>front</b> (top) of the stack and refresh; returns it so
+        /// you can keep configuring it (e.g. <c>sdf.AddEffect&lt;SDFGlowEffect&gt;().color = Color.cyan;</c>).</summary>
         public T AddEffect<T>() where T : SDFEffect, new()
         {
             var fx = new T();
             m_Stack.Insert(0, fx);
             MarkEffectsDirty();
             return fx;
+        }
+
+        /// <summary>Add an existing effect and refresh. By default it goes to the <b>back</b> (behind the
+        /// others); pass <paramref name="front"/> = true to put it on top.</summary>
+        public SDFImage AddEffect(SDFEffect effect, bool front = false)
+        {
+            if (effect != null)
+            {
+                if (front) m_Stack.Insert(0, effect); else m_Stack.Add(effect);
+                MarkEffectsDirty();
+            }
+            return this;
+        }
+
+        /// <summary>Remove a specific effect. Returns true if it was in the stack.</summary>
+        public bool RemoveEffect(SDFEffect effect)
+        {
+            if (effect != null && m_Stack.Remove(effect)) { MarkEffectsDirty(); return true; }
+            return false;
+        }
+
+        /// <summary>Remove every effect of type <typeparamref name="T"/>. Returns how many were removed.</summary>
+        public int RemoveEffects<T>() where T : SDFEffect
+        {
+            int removed = m_Stack.RemoveAll(e => e is T);
+            if (removed > 0) MarkEffectsDirty();
+            return removed;
+        }
+
+        /// <summary>Remove all effects.</summary>
+        public SDFImage ClearEffects()
+        {
+            if (m_Stack.Count > 0) { m_Stack.Clear(); MarkEffectsDirty(); }
+            return this;
         }
 
         /// <summary>Mark the stack dirty so the next render refreshes the material.</summary>
