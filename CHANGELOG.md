@@ -5,6 +5,16 @@ All notable changes to **UI Image Effects Kit** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-06-27
+
+### Added
+- **Global master switch** for the whole package: `SDFImage.EffectsEnabled` (static). When `false`,
+  **every** `SDFImage` renders as a plain `Image` — no SDF material, no effects, no mesh expansion —
+  while keeping each one's effect settings. Toggling refreshes all live instances immediately. In the
+  editor it's also exposed as a checkable **Tools ▸ UI Image Effects Kit ▸ Effects Enabled** menu item
+  (persists via EditorPrefs across sessions and play-in-editor), and the inspector shows a re-enable
+  banner while it's off. Builds use the static API.
+
 ## [1.2.0] - 2026-06-26
 
 ### Added
@@ -68,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uniforms; the effect data is now re-applied to the wrapped material in
   `GetModifiedMaterial`, so masked SDF images match unmasked ones.
 
+[1.3.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.3.0
 [1.2.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.2.0
 [1.1.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.1.1
 [1.1.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.1.0

@@ -62,9 +62,34 @@ namespace SDFImageKit
 
         private static Material s_SharedDefault;
 
+        // Global master switch + a registry of live instances so toggling refreshes them all at once.
+        private static bool s_EffectsEnabled = true;
+        private static readonly List<SDFImage> s_Instances = new List<SDFImage>();
+
         // ====================================================================================
         // Public API
         // ====================================================================================
+
+        /// <summary>
+        /// Global master switch for the whole package. When <c>false</c>, <b>every</b> <see cref="SDFImage"/>
+        /// renders as a plain <see cref="UnityEngine.UI.Image"/> — no SDF material, no effects, no mesh
+        /// expansion — while keeping each one's effect settings for when it's switched back on. Toggling
+        /// refreshes all live instances immediately.
+        /// </summary>
+        public static bool EffectsEnabled
+        {
+            get => s_EffectsEnabled;
+            set
+            {
+                if (s_EffectsEnabled == value) return;
+                s_EffectsEnabled = value;
+                for (int i = s_Instances.Count - 1; i >= 0; i--)
+                {
+                    var img = s_Instances[i];
+                    if (img != null) img.MarkEffectsDirty();
+                }
+            }
+        }
 
         /// <summary>
         /// The raw effect stack. <b>Index 0 is the front (top); the last item is the back.</b> Editing
@@ -243,12 +268,14 @@ namespace SDFImageKit
         protected override void OnEnable()
         {
             base.OnEnable();
+            if (!s_Instances.Contains(this)) s_Instances.Add(this);
             ForceResolve();
         }
 
         protected override void OnDisable()
         {
             base.OnDisable();
+            s_Instances.Remove(this);
             ReleaseRuntimeData();
             DestroyInstanceMaterial();
         }
@@ -331,6 +358,9 @@ namespace SDFImageKit
         /// </summary>
         public override Material GetModifiedMaterial(Material baseMaterial)
         {
+            // Master switch off → behave exactly like a normal Image (default material, no effects).
+            if (!s_EffectsEnabled) return base.GetModifiedMaterial(baseMaterial);
+
             EnsureResolved();
             var mat = m_RenderMaterial != null ? m_RenderMaterial : baseMaterial;
             var result = base.GetModifiedMaterial(mat);
@@ -358,6 +388,9 @@ namespace SDFImageKit
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             base.OnPopulateMesh(vh);
+
+            // Master switch off → leave the plain Image mesh untouched (no padding/glow expansion).
+            if (!s_EffectsEnabled) return;
 
             EnsureDataResolved();
             var data = m_ActiveData;

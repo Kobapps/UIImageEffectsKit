@@ -57,6 +57,9 @@ namespace SDFImageKit.EditorTools
             var root = new VisualElement();
             root.style.marginTop = 2;
 
+            // --- global master-switch notice (only shown when the package is turned off) ---
+            root.Add(BuildGlobalToggleNotice());
+
             // --- Image (native, IMGUI) inside a foldout ---
             var imageFold = new Foldout { text = "Image", value = true };
             imageFold.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -110,6 +113,33 @@ namespace SDFImageKit.EditorTools
             });
 
             return root;
+        }
+
+        // Warning banner shown only while the package master switch is OFF (every SDFImage draws as a
+        // plain Image). Includes a one-click re-enable. Hidden when effects are on.
+        private VisualElement BuildGlobalToggleNotice()
+        {
+            var box = new VisualElement();
+
+            void Refresh()
+            {
+                box.Clear();
+                if (SDFImage.EffectsEnabled) return;
+
+                box.Add(new HelpBox(
+                    "Effects are globally OFF — every SDFImage is rendering as a plain Image. " +
+                    "Toggle via Tools ▸ UI Image Effects Kit ▸ Effects Enabled.",
+                    HelpBoxMessageType.Warning)
+                { style = { marginBottom = 4 } });
+
+                box.Add(new Button(() => { SDFGlobalToggle.SetEnabled(true); Refresh(); })
+                { text = "Enable Effects" });
+            }
+
+            Refresh();
+            // Re-evaluate when the inspector regains focus (the toggle may change from the menu).
+            box.RegisterCallback<FocusInEvent>(_ => Refresh());
+            return box;
         }
 
         // ====================================================================================

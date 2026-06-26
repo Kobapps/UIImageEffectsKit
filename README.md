@@ -124,6 +124,21 @@ sdf.RemoveEffects<SDFShadowEffect>();                // drop all shadows
 > inserts at the front, `AddEffect(instance)` appends at the back. The `effects` list is still public for
 > full control — just call `MarkEffectsDirty()` after editing it directly.
 
+### Master switch
+
+One **global** toggle turns the whole package on or off. When it's off, **every** `SDFImage` renders as a
+plain `Image` (no SDF material, no effects, no mesh expansion) — each one keeps its effect settings for
+when you switch it back on.
+
+```csharp
+SDFImage.EffectsEnabled = false;   // all SDFImages now behave like normal Images
+SDFImage.EffectsEnabled = true;    // …and back, effects restored
+```
+
+In the editor there's a clickable equivalent at **Tools ▸ UI Image Effects Kit ▸ Effects Enabled** (it
+persists across editor sessions and play-in-editor). Builds aren't affected by the editor toggle — set
+`SDFImage.EffectsEnabled` from your own code to flip the package in a player.
+
 ---
 
 ## Effects
