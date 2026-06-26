@@ -110,10 +110,12 @@ sdf.MarkEffectsDirty();   // push changes to the material
 | **Face** | `mode` (Textured / Silhouette), `dilate`, `softness` | The sprite itself. *Textured* shows the real art (default); *Silhouette* ("Crisp Face") renders the SDF shape so it stays sharp at any zoom. Singleton, pinned to the front. |
 | **Outline** | `color`, `width`, `softness` | A border that hugs the silhouette. Repeatable — stack two for an inline + outline. |
 | **Shadow / Underlay** | `color`, `offset`, `softness`, `dilate` | A soft offset copy behind the face. Repeatable. |
-| **Glow** | `color`, `width`, `power`, `inner` | An outward falloff. `power` shapes the curve; stack glows for neon. Repeatable. |
+| **Glow** | `color`, `width`, `power`, `inner` | An outward falloff. `power` shapes the curve; stack glows for neon. Repeatable. `width` can go past `1` to push the halo **well beyond the sprite rect** — the mesh and field are extended automatically, no re-bake. |
 
 All sizes are **fractions of the field's *spread*** (itself a fraction of the sprite's smaller side),
-so a `0.3` outline looks identical at any zoom, display size, or field resolution.
+so a `0.3` outline looks identical at any zoom, display size, or field resolution. A Glow's `width` is a
+multiple of spread and may exceed `1`: the component grows the rendered mesh and the shader extrapolates
+the distance field so the glow extends past the RectTransform with a smooth falloff (no clipping).
 
 ---
 

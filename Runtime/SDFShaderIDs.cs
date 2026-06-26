@@ -16,6 +16,9 @@ namespace SDFImageKit
         public static readonly int SDFTex  = Shader.PropertyToID("_SDFTex");
         // (scaleX, scaleY, offsetX, offsetY) remap from sprite UV0 into the SDF texture.
         public static readonly int SDFRect = Shader.PropertyToID("_SDFRect");
+        // (sx, sy, 0, 0): converts "distance outside the field box" (SDF-UV units) into spread units,
+        // so a glow can extrapolate the clamped field and reach beyond the sprite rect.
+        public static readonly int SDFExtend = Shader.PropertyToID("_SDFExtend");
 
         // Effect stack (parallel arrays, composited 0..count-1 back-to-front)
         public static readonly int FxColor  = Shader.PropertyToID("_FxColor");

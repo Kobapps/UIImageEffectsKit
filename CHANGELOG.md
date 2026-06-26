@@ -5,6 +5,15 @@ All notable changes to **UI Image Effects Kit** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-26
+
+### Added
+- **Glow can now extend far beyond the sprite rect.** The glow `Width` range was raised (0–6× spread),
+  the rendered mesh auto-expands to fit the largest glow in the stack, and the shader linearly
+  extrapolates the clamped distance field past its baked range — so a wide glow renders a large, smooth
+  halo well outside the RectTransform instead of being clipped, with **no re-bake required**. Nearby glow
+  (within the baked field) is unchanged.
+
 ## [1.0.0] - 2026-06-26
 
 ### Added
@@ -30,4 +39,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uniforms; the effect data is now re-applied to the wrapped material in
   `GetModifiedMaterial`, so masked SDF images match unmasked ones.
 
+[1.1.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.1.0
 [1.0.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.0.0

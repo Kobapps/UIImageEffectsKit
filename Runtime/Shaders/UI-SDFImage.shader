@@ -11,6 +11,7 @@ Shader "UI/SDF Image"
 
         _SDFTex ("SDF Field", 2D) = "black" {}
         _SDFRect ("SDF UV Remap (sx,sy,ox,oy)", Vector) = (1,1,0,0)
+        _SDFExtend ("SDF Extend (sx,sy)", Vector) = (0,0,0,0)
 
         // --- uGUI stencil / mask plumbing ---
         _StencilComp ("Stencil Comparison", Float) = 8
@@ -97,6 +98,7 @@ Shader "UI/SDF Image"
 
             sampler2D _SDFTex;
             float4 _SDFRect;
+            float4 _SDFExtend;
 
             // Effect stack (composited 0..count-1, index 0 = back).
             float4 _FxColor[SDF_MAX_FX];
@@ -188,7 +190,14 @@ Shader "UI/SDF Image"
                     }
                     else // Glow: width = p.x, power = p.y, inner = p.z
                     {
-                        float gd = saturate((t + p.x) / max(p.x + p.z, 1e-3));
+                        // Extend the signed distance beyond the baked field so the glow can reach
+                        // past the sprite rect. The field is clamp-sampled, so at the field edge `t`
+                        // holds the boundary distance; we keep decreasing it by how far this fragment
+                        // lies OUTSIDE the field box (converted to spread units via _SDFExtend). Inside
+                        // the field (q == 0) this is exactly `t`, so nearby glow is unchanged.
+                        float2 q = max(0.0, max(-sdfUV, sdfUV - 1.0));
+                        float te = t - length(q * _SDFExtend.xy);
+                        float gd = saturate((te + p.x) / max(p.x + p.z, 1e-3));
                         float gcov = pow(gd, max(p.y, 1e-3));
                         layer = half4(c.rgb, c.a * gcov);
                     }

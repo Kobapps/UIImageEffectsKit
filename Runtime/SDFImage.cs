@@ -100,6 +100,7 @@ namespace SDFImageKit
         public void MarkEffectsDirty()
         {
             m_SettingsDirty = true;
+            SetVerticesDirty();   // glow reach can change how far the mesh must expand
             SetMaterialDirty();
         }
 
@@ -222,10 +223,11 @@ namespace SDFImageKit
         }
 
         /// <summary>
-        /// Expand the generated mesh outward into the field's transparent padding so effects can
-        /// render BEYOND the sprite edges instead of being clipped. Outer-boundary vertices are
-        /// pushed out and their UV0 extrapolated; the shader's SDF remap turns that into the field
-        /// margin. Works for Simple and Sliced; runs only when the field was baked with padding.
+        /// Expand the generated mesh outward so effects can render BEYOND the sprite edges instead of
+        /// being clipped: into the field's baked transparent padding, and — for glows — far enough to
+        /// fit the glow's reach (which can exceed the sprite rect). Outer-boundary vertices are pushed
+        /// out and their UV0 extrapolated; the shader remaps/extrapolates the field there. Works for
+        /// Simple and Sliced.
         /// </summary>
         protected override void OnPopulateMesh(VertexHelper vh)
         {
@@ -235,7 +237,28 @@ namespace SDFImageKit
             var data = m_ActiveData;
             if (data == null || !data.IsValid) return;
             Vector2 pad = data.padding;
-            if (pad.x <= 0f && pad.y <= 0f) return;
+
+            // How far to push the outer boundary outward, per axis, as a fraction of the content
+            // mesh. The padding term reveals the field's baked transparent border; the glow term
+            // lets a large glow extend past the sprite rect (the shader extrapolates the field there).
+            float kx = pad.x > 0f ? pad.x / Mathf.Max(1e-4f, 1f - 2f * pad.x) : 0f;
+            float ky = pad.y > 0f ? pad.y / Mathf.Max(1e-4f, 1f - 2f * pad.y) : 0f;
+            float glow = MaxGlowWidth();
+            if (glow > 0f && data.field != null)
+            {
+                float fw = Mathf.Max(1, data.field.width), fh = Mathf.Max(1, data.field.height);
+                float contentW = Mathf.Max(1f, fw * (1f - 2f * pad.x));
+                float contentH = Mathf.Max(1f, fh * (1f - 2f * pad.y));
+                float spreadPix = Mathf.Max(0.5f, data.spread * Mathf.Min(contentW, contentH));
+                float reachPix = glow * spreadPix;            // texels the glow reaches past the edge
+                // +15% so the halo fully fades before the mesh edge (no hard clip).
+                kx = Mathf.Max(kx, reachPix / contentW * 1.15f);
+                ky = Mathf.Max(ky, reachPix / contentH * 1.15f);
+            }
+            // Cap so an extreme glow can't blow the mesh up unboundedly.
+            kx = Mathf.Min(kx, 2.5f);
+            ky = Mathf.Min(ky, 2.5f);
+            if (kx <= 1e-5f && ky <= 1e-5f) return;
 
             int n = vh.currentVertCount;
             if (n == 0) return;
@@ -259,8 +282,6 @@ namespace SDFImageKit
             float meshW = maxX - minX, meshH = maxY - minY;
             if (meshW <= 1e-4f || meshH <= 1e-4f) return;
 
-            float kx = pad.x / Mathf.Max(1e-4f, 1f - 2f * pad.x);
-            float ky = pad.y / Mathf.Max(1e-4f, 1f - 2f * pad.y);
             float padLX = meshW * kx, padLY = meshH * ky;
             float duvX = kx * (maxU - minU), duvY = ky * (maxV - minV);
             float ex = meshW * 0.002f + 1e-3f, ey = meshH * 0.002f + 1e-3f;
@@ -375,6 +396,7 @@ namespace SDFImageKit
             {
                 mat.SetTexture(SDFShaderIDs.SDFTex, m_ActiveData.field);
                 mat.SetVector(SDFShaderIDs.SDFRect, ComputeSDFRect(sp));
+                mat.SetVector(SDFShaderIDs.SDFExtend, ComputeSDFExtend());
             }
 
             // Pack enabled layers back-to-front: index 0 = bottom of list = drawn first (back).
@@ -445,6 +467,34 @@ namespace SDFImageKit
             Vector2 pad = m_ActiveData != null ? m_ActiveData.padding : Vector2.zero;
             float kx = 1f - 2f * pad.x, ky = 1f - 2f * pad.y;
             return new Vector4(sx * kx, sy * ky, ox * kx + pad.x, oy * ky + pad.y);
+        }
+
+        /// <summary>
+        /// Per-axis factor converting "distance outside the SDF box" (in SDF-UV units) into the
+        /// shader's normalized spread units, so a glow can extrapolate the clamped field beyond its
+        /// baked range and extend past the sprite rect. = fieldSizeTexels / spreadTexels.
+        /// </summary>
+        private Vector4 ComputeSDFExtend()
+        {
+            var data = m_ActiveData;
+            if (data == null || data.field == null) return Vector4.zero;
+            float fw = Mathf.Max(1, data.field.width);
+            float fh = Mathf.Max(1, data.field.height);
+            Vector2 pad = data.padding;
+            float contentW = fw * Mathf.Max(1e-4f, 1f - 2f * pad.x);
+            float contentH = fh * Mathf.Max(1e-4f, 1f - 2f * pad.y);
+            float spreadPix = Mathf.Max(0.5f, data.spread * Mathf.Min(contentW, contentH));
+            return new Vector4(fw / spreadPix, fh / spreadPix, 0f, 0f);
+        }
+
+        /// <summary>Largest <see cref="SDFGlowEffect.width"/> among enabled glows (0 if none).</summary>
+        private float MaxGlowWidth()
+        {
+            float m = 0f;
+            if (m_Stack != null)
+                for (int i = 0; i < m_Stack.Count; i++)
+                    if (m_Stack[i] is SDFGlowEffect g && g.enabled && g.width > m) m = g.width;
+            return m;
         }
     }
 }

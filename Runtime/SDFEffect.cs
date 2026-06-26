@@ -101,7 +101,9 @@ namespace SDFImageKit
     public class SDFGlowEffect : SDFEffect
     {
         public Color color = new Color(0.3f, 0.7f, 1f, 1f);
-        [Range(0f, 2f), Tooltip("Outward reach as a fraction of the field spread.")]
+        [Range(0f, 6f), Tooltip("Outward reach, as a multiple of the field spread. Values above ~1 " +
+                 "extend the glow beyond the baked field (and the sprite rect); the mesh and the " +
+                 "distance field are extended automatically so the halo isn't clipped.")]
         public float width = 0.8f;
         [Range(0.1f, 8f), Tooltip("Falloff exponent. >1 = tighter near the edge.")]
         public float power = 1.5f;
