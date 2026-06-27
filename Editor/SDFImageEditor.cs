@@ -32,7 +32,7 @@ namespace SDFImageKit.EditorTools
 
         private static readonly SDFEffectKind[] k_AddOrder =
         {
-            SDFEffectKind.Outline, SDFEffectKind.Shadow, SDFEffectKind.Glow, SDFEffectKind.Face
+            SDFEffectKind.Outline, SDFEffectKind.Shadow, SDFEffectKind.Glow, SDFEffectKind.Blur, SDFEffectKind.Face
         };
 
         private static bool Pro => EditorGUIUtility.isProSkin;
@@ -568,6 +568,7 @@ namespace SDFImageKit.EditorTools
                 case SDFEffectKind.Outline: return new Color(0.40f, 0.62f, 1f);
                 case SDFEffectKind.Shadow: return new Color(0.62f, 0.45f, 0.9f);
                 case SDFEffectKind.Glow: return new Color(0.25f, 0.85f, 0.95f);
+                case SDFEffectKind.Blur: return new Color(0.45f, 0.85f, 0.6f);
                 default: return new Color(0.5f, 0.5f, 0.5f);
             }
         }

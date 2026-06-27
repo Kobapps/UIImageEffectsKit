@@ -10,6 +10,7 @@ namespace SDFImageKit
         Outline = 1,
         Shadow = 2,
         Glow = 3,
+        Blur = 4,
     }
 
     /// <summary>
@@ -133,6 +134,27 @@ namespace SDFImageKit
         public override Vector4 PackedParamsScaled(float k) => new Vector4(width * k, power, inner * k, 0f);
     }
 
+    /// <summary>
+    /// A soft-focus blur of the sprite — a multi-tap blur of the sprite texture itself (not the SDF),
+    /// so it blurs colour AND alpha (the edges soften too). Repeatable for a heavier blur.
+    /// </summary>
+    [Serializable]
+    public class SDFBlurEffect : SDFEffect
+    {
+        [Tooltip("Tint multiplied onto the blurred sprite.")]
+        public Color tint = Color.white;
+        [Range(0f, 0.2f), Tooltip("Blur radius as a fraction of the sprite's smaller side. Larger " +
+                 "radii are softer; very large values may show faint ringing (it's a single-pass blur).")]
+        public float radius = 0.04f;
+        [Range(0f, 1f), Tooltip("Blend from the sharp sprite (0) to fully blurred (1).")]
+        public float strength = 1f;
+
+        public override SDFEffectKind Kind => SDFEffectKind.Blur;
+        public override Color EffectColor { get => tint; set => tint = value; }
+        // radius is a fraction of the sprite (not the spread), so it is NOT scaled by the field range.
+        public override Vector4 PackedParams => new Vector4(radius, strength, 0f, 0f);
+    }
+
     /// <summary>Helpers shared by runtime + editor.</summary>
     public static class SDFEffectFactory
     {
@@ -144,6 +166,7 @@ namespace SDFImageKit
                 case SDFEffectKind.Outline: return new SDFOutlineEffect();
                 case SDFEffectKind.Shadow: return new SDFShadowEffect();
                 case SDFEffectKind.Glow: return new SDFGlowEffect();
+                case SDFEffectKind.Blur: return new SDFBlurEffect();
                 default: return new SDFOutlineEffect();
             }
         }

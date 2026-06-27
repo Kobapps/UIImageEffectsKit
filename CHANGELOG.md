@@ -5,6 +5,16 @@ All notable changes to **UI Image Effects Kit** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-06-27
+
+### Added
+- **Blur effect** (`SDFBlurEffect`) in the stack — a soft-focus blur of the sprite itself (colour
+  *and* alpha, so the edges soften too). `radius` is a fraction of the sprite, `strength` blends
+  sharp↔blurred. It's a single-pass 32-tap golden-angle disk blur, weighted toward the centre and
+  rotated per-fragment so it stays smooth (no ring artifacts) even on hard edges. Composites with the
+  other effects — e.g. a blurred sprite under a crisp Outline for a frosted-card look. Repeatable; the
+  rendered mesh auto-grows to fit the radius. Available from **+ Add Effect** and from code.
+
 ## [1.3.0] - 2026-06-27
 
 ### Added
@@ -78,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uniforms; the effect data is now re-applied to the wrapped material in
   `GetModifiedMaterial`, so masked SDF images match unmasked ones.
 
+[1.4.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.4.0
 [1.3.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.3.0
 [1.2.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.2.0
 [1.1.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.1.1

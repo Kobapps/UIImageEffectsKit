@@ -403,15 +403,17 @@ namespace SDFImageKit
             float kx = pad.x > 0f ? pad.x / Mathf.Max(1e-4f, 1f - 2f * pad.x) : 0f;
             float ky = pad.y > 0f ? pad.y / Mathf.Max(1e-4f, 1f - 2f * pad.y) : 0f;
             float glow = MaxGlowWidth();
-            if (glow > 0f && data.field != null)
+            float blur = MaxBlurRadius();
+            if ((glow > 0f || blur > 0f) && data.field != null)
             {
                 float fw = Mathf.Max(1, data.field.width), fh = Mathf.Max(1, data.field.height);
                 float contentW = Mathf.Max(1f, fw * (1f - 2f * pad.x));
                 float contentH = Mathf.Max(1f, fh * (1f - 2f * pad.y));
-                // Glow reach is absolute (width x ReferenceSpread), independent of the baked spread.
-                float refPix = Mathf.Max(0.5f, ReferenceSpread * Mathf.Min(contentW, contentH));
-                float reachPix = glow * refPix;               // texels the glow reaches past the edge
-                // +15% so the halo fully fades before the mesh edge (no hard clip).
+                float minC = Mathf.Min(contentW, contentH);
+                // Glow reach is absolute (width x ReferenceSpread); a blur softens out by ~its radius.
+                // Both are fractions of the smaller side, so take the larger as the needed margin.
+                float reachPix = Mathf.Max(glow * ReferenceSpread, blur) * minC;
+                // +15% so the effect fully fades before the mesh edge (no hard clip).
                 kx = Mathf.Max(kx, reachPix / contentW * 1.15f);
                 ky = Mathf.Max(ky, reachPix / contentH * 1.15f);
             }
@@ -680,6 +682,16 @@ namespace SDFImageKit
             if (m_Stack != null)
                 for (int i = 0; i < m_Stack.Count; i++)
                     if (m_Stack[i] is SDFGlowEffect g && g.enabled && g.width > m) m = g.width;
+            return m;
+        }
+
+        /// <summary>Largest <see cref="SDFBlurEffect.radius"/> among enabled blurs (0 if none).</summary>
+        private float MaxBlurRadius()
+        {
+            float m = 0f;
+            if (m_Stack != null)
+                for (int i = 0; i < m_Stack.Count; i++)
+                    if (m_Stack[i] is SDFBlurEffect b && b.enabled && b.radius > m) m = b.radius;
             return m;
         }
     }
