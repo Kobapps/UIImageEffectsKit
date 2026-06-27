@@ -149,11 +149,15 @@ namespace SDFImageKit
         public float radius = 0.04f;
         [Range(0f, 1f), Tooltip("Blend from the sharp sprite (0) to fully blurred (1).")]
         public float strength = 1f;
+        [Tooltip("Take the silhouette edge from the SDF — a perfectly clean, smooth outline — while " +
+                 "still blurring the interior. Best for solid-silhouette sprites (icons); leave off for " +
+                 "soft or photographic art whose real alpha the SDF can't represent.")]
+        public bool crispEdge = false;
 
         public override SDFEffectKind Kind => SDFEffectKind.Blur;
         public override Color EffectColor { get => tint; set => tint = value; }
         // radius is a fraction of the sprite (not the spread), so it is NOT scaled by the field range.
-        public override Vector4 PackedParams => new Vector4(radius, strength, 0f, 0f);
+        public override Vector4 PackedParams => new Vector4(radius, strength, crispEdge ? 1f : 0f, 0f);
     }
 
     /// <summary>Helpers shared by runtime + editor.</summary>

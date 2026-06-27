@@ -149,7 +149,7 @@ persists across editor sessions and play-in-editor). Builds aren't affected by t
 | **Outline** | `color`, `width`, `softness` | A border that hugs the silhouette. Repeatable — stack two for an inline + outline. |
 | **Shadow / Underlay** | `color`, `offset`, `softness`, `dilate` | A soft offset copy behind the face. Repeatable. |
 | **Glow** | `color`, `width`, `power`, `inner` | An outward falloff. `power` shapes the curve; stack glows for neon. Repeatable. `width` can go past `1` to push the halo **well beyond the sprite rect**, and it stays **shape-following** (see below). |
-| **Blur** | `tint`, `radius`, `strength` | A soft-focus blur of the sprite itself (colour *and* alpha, so edges soften too). `radius` is a fraction of the sprite; `strength` blends sharp↔blurred. Repeatable. Single-pass disk blur — great for soft focus / frosted looks; pair it with a sharp Outline for a frosted-card effect. |
+| **Blur** | `tint`, `radius`, `strength`, `crispEdge` | A soft-focus blur of the sprite itself (colour *and* alpha, so edges soften too). `radius` is a fraction of the sprite; `strength` blends sharp↔blurred. **`crispEdge`** keeps the silhouette razor-sharp (taken from the SDF) while the interior blurs — a frosted-glass-*shape* look, best for solid-silhouette icons. Repeatable. Single-pass disk blur; pair with a sharp Outline for a frosted card. |
 
 All effect sizes are in a **fixed reference unit** (a fraction of the sprite's smaller side), so a `0.3`
 outline looks identical at any zoom, display size, or field resolution — and independent of how the

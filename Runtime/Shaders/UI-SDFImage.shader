@@ -126,21 +126,25 @@ Shader "UI/SDF Image"
             inline half4 BlurSprite(float2 uv, float r)
             {
                 const float golden = 2.39996323;   // radians (137.5 degrees)
-                half4 acc = half4(0, 0, 0, 0);
-                float wsum = 0.0;
+                half3 accRGB = half3(0, 0, 0);
+                float accA = 0.0, wsum = 0.0;
                 [loop]
                 for (int i = 0; i < SDF_BLUR_TAPS; i++)
                 {
                     float fi = (float)i + 0.5;
-                    float t  = fi / (float)SDF_BLUR_TAPS;     // 0..1
-                    float rr = sqrt(t);                       // even area coverage
+                    float ti = fi / (float)SDF_BLUR_TAPS;     // 0..1
+                    float rr = sqrt(ti);                      // even area coverage
                     float th = fi * golden;
                     float2 o = float2(cos(th), sin(th)) * (rr * r);
                     float w  = exp(-3.0 * rr * rr);           // Gaussian falloff (rr is already normalized)
-                    acc  += (tex2Dlod(_MainTex, float4(uv + o, 0, 0)) + _TextureSampleAdd) * w;
-                    wsum += w;
+                    half4 s  = tex2Dlod(_MainTex, float4(uv + o, 0, 0)) + _TextureSampleAdd;
+                    accRGB += s.rgb * s.a * w;                // premultiplied — colour weighted by coverage
+                    accA   += s.a * w;
+                    wsum   += w;
                 }
-                return acc / max(wsum, 1e-4);
+                half  a   = accA / max(wsum, 1e-4);           // blurred coverage
+                half3 rgb = accRGB / max(accA, 1e-4);         // un-premultiplied colour (no dark fringe)
+                return half4(rgb, a);
             }
 
             v2f vert(appdata_t v)
@@ -239,11 +243,23 @@ Shader "UI/SDF Image"
                         float gcov     = pow(gd, max(p.y, 1e-3));
                         layer = half4(c.rgb, c.a * gcov);
                     }
-                    else // Blur: radius = p.x, strength = p.y. Blurs the sprite (colour + alpha).
+                    else // Blur: radius = p.x, strength = p.y, crispEdge = p.z
                     {
                         half4 blurred = BlurSprite(uv, p.x);
                         half4 mixed   = lerp(sprite, blurred, saturate(p.y));
-                        layer = half4(mixed.rgb * c.rgb * IN.color.rgb, mixed.a * c.a);
+                        float a = mixed.a;
+                        if (p.z > 0.5)
+                        {
+                            // Crisp edge: keep the blurred interior colour but take the silhouette alpha
+                            // from the SDF, so the edge is perfectly smooth (no tap structure). The
+                            // feather widens with the blur radius. Convert the UV radius into the field's
+                            // signed-distance (t) units; use the MIN axis so the feather (= radius/spread)
+                            // is isotropic regardless of the sprite's aspect ratio.
+                            float fth = p.x * min(abs(_SDFRect.x) * _SDFExtend.x,
+                                                  abs(_SDFRect.y) * _SDFExtend.y);
+                            a = smoothstep(-(aa + fth), (aa + fth), t);
+                        }
+                        layer = half4(mixed.rgb * c.rgb * IN.color.rgb, a * c.a);
                     }
 
                     layer.a *= ia;
