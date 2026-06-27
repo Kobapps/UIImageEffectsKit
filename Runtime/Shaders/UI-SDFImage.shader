@@ -243,7 +243,7 @@ Shader "UI/SDF Image"
                         float gcov     = pow(gd, max(p.y, 1e-3));
                         layer = half4(c.rgb, c.a * gcov);
                     }
-                    else // Blur: radius = p.x, strength = p.y, crispEdge = p.z
+                    else if (ty == 4) // Blur: radius = p.x, strength = p.y, crispEdge = p.z
                     {
                         half4 blurred = BlurSprite(uv, p.x);
                         half4 mixed   = lerp(sprite, blurred, saturate(p.y));
@@ -260,6 +260,21 @@ Shader "UI/SDF Image"
                             a = smoothstep(-(aa + fth), (aa + fth), t);
                         }
                         layer = half4(mixed.rgb * c.rgb * IN.color.rgb, a * c.a);
+                    }
+                    else // Shine: position = p.x, width = p.y, angle = p.z, softness = p.w
+                    {
+                        // A sheen band sweeping across the sprite, clipped to its silhouette. As position
+                        // goes 0..1 the band's centre travels from just off one side to just off the other.
+                        float2 dir = float2(cos(p.z), sin(p.z));
+                        float ext  = 0.5 * (abs(dir.x) + abs(dir.y));   // half sweep extent of the UV square
+                        float proj = dot(uv - 0.5, dir);
+                        float ctr  = lerp(-ext - p.y, ext + p.y, saturate(p.x));
+                        float d    = abs(proj - ctr);
+                        float w0   = p.y * (1.0 - p.w);                 // inner edge (full bright)
+                        float w1   = max(p.y, w0 + 1e-4);              // outer edge (always > w0, no degenerate step)
+                        float band = 1.0 - smoothstep(w0, w1, d);
+                        float scov = smoothstep(-aa, aa, t);           // clip to the shape
+                        layer = half4(c.rgb, c.a * band * scov);
                     }
 
                     layer.a *= ia;

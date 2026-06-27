@@ -5,6 +5,15 @@ All notable changes to **UI Image Effects Kit** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-06-27
+
+### Added
+- **Shine effect** (`SDFShineEffect`) — a sweeping sheen / gloss band across the sprite, clipped to its
+  silhouette and drawn on top of the Face. Controls: `color`, `position`, `angle`, `width`, `softness`.
+  **Animate `position` 0→1** for a moving shine; `SDFImage.SetShinePosition(float)` updates only the
+  material (no mesh rebuild), so it's cheap to call every frame. Repeatable. The inspector treats Shine as
+  an overlay — it auto-orders in front of the Face (which still stays in front of everything else).
+
 ## [1.5.1] - 2026-06-27
 
 ### Fixed
@@ -114,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uniforms; the effect data is now re-applied to the wrapped material in
   `GetModifiedMaterial`, so masked SDF images match unmasked ones.
 
+[1.6.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.6.0
 [1.5.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.5.1
 [1.5.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.5.0
 [1.4.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.4.1

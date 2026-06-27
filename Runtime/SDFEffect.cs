@@ -11,6 +11,7 @@ namespace SDFImageKit
         Shadow = 2,
         Glow = 3,
         Blur = 4,
+        Shine = 5,
     }
 
     /// <summary>
@@ -160,6 +161,33 @@ namespace SDFImageKit
         public override Vector4 PackedParams => new Vector4(radius, strength, crispEdge ? 1f : 0f, 0f);
     }
 
+    /// <summary>
+    /// A sweeping highlight (sheen / gloss) across the sprite, clipped to its silhouette. Animate
+    /// <see cref="position"/> from 0..1 for a moving shine — see <c>SDFImage.SetShinePosition</c>.
+    /// Drawn IN FRONT of the Face (it's a surface highlight). Repeatable.
+    /// </summary>
+    [Serializable]
+    public class SDFShineEffect : SDFEffect
+    {
+        [Tooltip("Shine colour; its alpha is the overall intensity.")]
+        public Color color = new Color(1f, 1f, 1f, 0.8f);
+        [Range(0f, 1f), Tooltip("Position of the shine band along its sweep (0 = off one side, 1 = off " +
+                 "the other). Animate this for a moving sheen.")]
+        public float position = 0.5f;
+        [Range(0f, 360f), Tooltip("Sweep direction, in degrees.")]
+        public float angle = 45f;
+        [Range(0.02f, 1f), Tooltip("Width of the shine band, as a fraction of the sweep span.")]
+        public float width = 0.15f;
+        [Range(0f, 1f), Tooltip("Edge softness of the band (0 = hard stripe, 1 = soft gradient).")]
+        public float softness = 0.6f;
+
+        public override SDFEffectKind Kind => SDFEffectKind.Shine;
+        public override Color EffectColor { get => color; set => color = value; }
+        // position/width/angle/softness are not field-distances, so they are NOT scaled.
+        public override Vector4 PackedParams =>
+            new Vector4(position, width, angle * Mathf.Deg2Rad, softness);
+    }
+
     /// <summary>Helpers shared by runtime + editor.</summary>
     public static class SDFEffectFactory
     {
@@ -172,6 +200,7 @@ namespace SDFImageKit
                 case SDFEffectKind.Shadow: return new SDFShadowEffect();
                 case SDFEffectKind.Glow: return new SDFGlowEffect();
                 case SDFEffectKind.Blur: return new SDFBlurEffect();
+                case SDFEffectKind.Shine: return new SDFShineEffect();
                 default: return new SDFOutlineEffect();
             }
         }

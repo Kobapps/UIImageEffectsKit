@@ -32,7 +32,8 @@ namespace SDFImageKit.EditorTools
 
         private static readonly SDFEffectKind[] k_AddOrder =
         {
-            SDFEffectKind.Outline, SDFEffectKind.Shadow, SDFEffectKind.Glow, SDFEffectKind.Blur, SDFEffectKind.Face
+            SDFEffectKind.Outline, SDFEffectKind.Shadow, SDFEffectKind.Glow, SDFEffectKind.Blur,
+            SDFEffectKind.Shine, SDFEffectKind.Face
         };
 
         private static bool Pro => EditorGUIUtility.isProSkin;
@@ -88,7 +89,7 @@ namespace SDFImageKit.EditorTools
             header.Add(new Label("Effect Stack") { style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 12, flexGrow = 1 } });
             header.Add(BuildAddButton());
             root.Add(header);
-            root.Add(new Label("Drag the ≡ handle to reorder. The ★ Face always stays in front.")
+            root.Add(new Label("Drag the ≡ handle to reorder. The ★ Face stays in front (Shine overlays sit above it).")
             { style = { color = Muted, fontSize = 10, marginBottom = 6, whiteSpace = WhiteSpace.Normal } });
 
             m_StackContainer = new VisualElement();
@@ -415,20 +416,32 @@ namespace SDFImageKit.EditorTools
             RebuildStack();
         }
 
-        /// <summary>Guarantee the Face (if any) is at index 0 so the sprite renders in front.</summary>
+        /// <summary>
+        /// Keep the layer order sane: Shine is a surface highlight so it must sit IN FRONT of the Face,
+        /// and the Face must sit in front of everything else. Enforces  [Shine…]  Face  [the rest].
+        /// </summary>
         private void PinFaceToFront()
         {
             serializedObject.Update();
+            int n = m_StackProp.arraySize;
+
+            // 1) move every Shine to the front, preserving their relative order.
+            int front = 0;
+            for (int i = 0; i < n; i++)
+            {
+                if (KindAt(i) == SDFEffectKind.Shine)
+                {
+                    if (i != front) m_StackProp.MoveArrayElement(i, front);
+                    front++;
+                }
+            }
+
+            // 2) move the Face to just behind the shines (in front of all non-overlay effects).
             int faceIdx = -1;
-            for (int i = 0; i < m_StackProp.arraySize; i++)
-            {
-                if (KindAt(i) == SDFEffectKind.Face) { faceIdx = i; break; }
-            }
-            if (faceIdx > 0)
-            {
-                m_StackProp.MoveArrayElement(faceIdx, 0);
-                serializedObject.ApplyModifiedProperties();
-            }
+            for (int i = 0; i < n; i++) if (KindAt(i) == SDFEffectKind.Face) { faceIdx = i; break; }
+            if (faceIdx >= 0 && faceIdx != front) m_StackProp.MoveArrayElement(faceIdx, front);
+
+            serializedObject.ApplyModifiedProperties();
         }
 
         private SDFEffectKind KindAt(int i)
@@ -569,6 +582,7 @@ namespace SDFImageKit.EditorTools
                 case SDFEffectKind.Shadow: return new Color(0.62f, 0.45f, 0.9f);
                 case SDFEffectKind.Glow: return new Color(0.25f, 0.85f, 0.95f);
                 case SDFEffectKind.Blur: return new Color(0.45f, 0.85f, 0.6f);
+                case SDFEffectKind.Shine: return new Color(1f, 0.92f, 0.5f);
                 default: return new Color(0.5f, 0.5f, 0.5f);
             }
         }

@@ -1,6 +1,6 @@
 # UI Image Effects Kit
 
-**Crisp, resolution-independent outline · shadow · glow · blur for uGUI — as a single drop-in component.**
+**Crisp, resolution-independent outline · shadow · glow · blur · shine for uGUI — as a single drop-in component.**
 
 `SDFImage` extends `UnityEngine.UI.Image` and adds a reorderable stack of effects driven by a
 **Signed Distance Field** baked from the sprite's alpha. Because a distance field stores *how far
@@ -150,10 +150,20 @@ persists across editor sessions and play-in-editor). Builds aren't affected by t
 | **Shadow / Underlay** | `color`, `offset`, `softness`, `dilate` | A soft offset copy behind the face. Repeatable. |
 | **Glow** | `color`, `width`, `power`, `inner` | An outward falloff. `power` shapes the curve; stack glows for neon. Repeatable. `width` can go past `1` to push the halo **well beyond the sprite rect**, and it stays **shape-following** (see below). |
 | **Blur** | `tint`, `radius`, `strength`, `crispEdge` | A soft-focus blur of the sprite itself (colour *and* alpha, so edges soften too). `radius` is a fraction of the sprite; `strength` blends sharp↔blurred. **`crispEdge`** keeps the silhouette razor-sharp (taken from the SDF) while the interior blurs — a frosted-glass-*shape* look, best for solid-silhouette icons. Repeatable. Single-pass disk blur; pair with a sharp Outline for a frosted card. |
+| **Shine** | `color`, `position`, `angle`, `width`, `softness` | A sweeping sheen / gloss band across the sprite, clipped to its silhouette and drawn on top. **Animate `position` 0→1** to sweep it across (see below). Repeatable; sits in front of the Face. |
 
 All effect sizes are in a **fixed reference unit** (a fraction of the sprite's smaller side), so a `0.3`
 outline looks identical at any zoom, display size, or field resolution — and independent of how the
 field was baked.
+
+**Animating a shine.** Add a Shine effect, then sweep its `position` over time. `SetShinePosition` only
+touches the material (no mesh rebuild), so it's cheap to call every frame:
+
+```csharp
+sdf.AddEffect(new SDFShineEffect { angle = 45f, width = 0.15f });
+
+void Update() => sdf.SetShinePosition(Mathf.Repeat(Time.time * 0.6f, 1f)); // loop the sweep
+```
 
 A Glow's `width` can exceed `1` to reach far past the RectTransform. To keep a big glow hugging the
 silhouette (rather than fading to a blob), the field must hold distance data that far out, so the kit

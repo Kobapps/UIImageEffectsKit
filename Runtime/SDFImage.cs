@@ -198,6 +198,21 @@ namespace SDFImageKit
         public SDFImage SetEffectsColor<T>(Color color) where T : SDFEffect
             => ModifyAll<T>(e => e.EffectColor = color);
 
+        /// <summary>
+        /// Set the sweep <see cref="SDFShineEffect.position"/> (0..1) of every Shine effect and refresh.
+        /// This only updates the material (no mesh rebuild), so it's cheap to call every frame to animate
+        /// a moving sheen, e.g. <c>sdf.SetShinePosition(Mathf.Repeat(Time.time * speed, 1f));</c>
+        /// </summary>
+        public SDFImage SetShinePosition(float position)
+        {
+            bool any = false;
+            if (m_Stack != null)
+                for (int i = 0; i < m_Stack.Count; i++)
+                    if (m_Stack[i] is SDFShineEffect s) { s.position = position; any = true; }
+            if (any) { m_SettingsDirty = true; SetMaterialDirty(); }   // material only — no mesh rebuild
+            return this;
+        }
+
         /// <summary>Add a new effect at the <b>front</b> (top) of the stack and refresh; returns it so
         /// you can keep configuring it (e.g. <c>sdf.AddEffect&lt;SDFGlowEffect&gt;().color = Color.cyan;</c>).</summary>
         public T AddEffect<T>() where T : SDFEffect, new()
