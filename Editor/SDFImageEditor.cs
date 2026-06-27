@@ -573,8 +573,10 @@ namespace SDFImageKit.EditorTools
             }
         }
 
+        // Label for the "+ Add Effect" menu. Must not contain '/', which GenericMenu treats as a
+        // submenu separator (so "Shadow / Underlay" would wrongly nest under a "Shadow" submenu).
         private static string KindLabel(SDFEffectKind kind) =>
-            kind == SDFEffectKind.Shadow ? "Shadow / Underlay" : kind.ToString();
+            kind == SDFEffectKind.Shadow ? "Shadow (Underlay)" : kind.ToString();
 
         private static VisualElement Spacer(float h) => new VisualElement { style = { height = h } };
 
