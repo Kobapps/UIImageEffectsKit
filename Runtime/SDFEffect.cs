@@ -143,8 +143,9 @@ namespace SDFImageKit
     {
         [Tooltip("Tint multiplied onto the blurred sprite.")]
         public Color tint = Color.white;
-        [Range(0f, 0.2f), Tooltip("Blur radius as a fraction of the sprite's smaller side. Larger " +
-                 "radii are softer; very large values may show faint ringing (it's a single-pass blur).")]
+        [Range(0f, 0.12f), Tooltip("Blur radius as a fraction of the sprite's smaller side. Larger radii " +
+                 "are softer. It's a single-pass disk blur, so very large radii on hard, high-contrast " +
+                 "edges may show faint structure — keep it moderate for the cleanest soft-focus.")]
         public float radius = 0.04f;
         [Range(0f, 1f), Tooltip("Blend from the sharp sprite (0) to fully blurred (1).")]
         public float strength = 1f;

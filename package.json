@@ -1,6 +1,6 @@
 {
   "name": "com.kobapps.uiimageeffectskit",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "displayName": "UI Image Effects Kit",
   "description": "Surface-correct, resolution-independent outline / shadow / glow / blur for uGUI Images using cached Signed Distance Fields. A drop-in component that extends UnityEngine.UI.Image with a reorderable effect stack, crisp scaling at any zoom, full Mask / RectMask2D support, atlas support, and one-click SDF embedding (GPU or CPU bake, all platforms).",
   "unity": "2021.3",

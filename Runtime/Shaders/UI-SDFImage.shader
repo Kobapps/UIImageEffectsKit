@@ -118,11 +118,12 @@ Shader "UI/SDF Image"
             // disk evenly (no visible rings), weighted by a Gaussian toward the centre so the falloff is
             // smooth and faint at the rim. Explicit LOD keeps it safe inside the effect loop. `r` is the
             // radius in UV (a fraction of the sprite). Blurs colour AND alpha, so the silhouette softens.
-            #define SDF_BLUR_TAPS 32
-            // `rot` = (cos,sin) of a per-fragment rotation that spins the whole sample pattern. It turns
-            // the discrete tap structure (which otherwise ghosts on hard, high-contrast edges) into fine
-            // noise, which reads far better. `r` is the radius in UV (a fraction of the sprite).
-            inline half4 BlurSprite(float2 uv, float r, float2 rot)
+            #define SDF_BLUR_TAPS 64
+            // Disk blur via a golden-angle "sunflower" pattern — 64 points fill the disk evenly (no
+            // visible rings), Gaussian-weighted toward the centre. Dense enough to stay smooth without
+            // per-pixel dithering (so no grain). `r` is the radius in UV (a fraction of the sprite).
+            // Blurs colour AND alpha, so the silhouette softens too.
+            inline half4 BlurSprite(float2 uv, float r)
             {
                 const float golden = 2.39996323;   // radians (137.5 degrees)
                 half4 acc = half4(0, 0, 0, 0);
@@ -134,8 +135,7 @@ Shader "UI/SDF Image"
                     float t  = fi / (float)SDF_BLUR_TAPS;     // 0..1
                     float rr = sqrt(t);                       // even area coverage
                     float th = fi * golden;
-                    float2 d = float2(cos(th), sin(th));
-                    float2 o = float2(d.x * rot.x - d.y * rot.y, d.x * rot.y + d.y * rot.x) * (rr * r);
+                    float2 o = float2(cos(th), sin(th)) * (rr * r);
                     float w  = exp(-3.0 * rr * rr);           // Gaussian falloff (rr is already normalized)
                     acc  += (tex2Dlod(_MainTex, float4(uv + o, 0, 0)) + _TextureSampleAdd) * w;
                     wsum += w;
@@ -241,10 +241,7 @@ Shader "UI/SDF Image"
                     }
                     else // Blur: radius = p.x, strength = p.y. Blurs the sprite (colour + alpha).
                     {
-                        // Per-fragment rotation of the sample disk → dithers the tap structure into noise.
-                        float jit = frac(sin(dot(IN.vertex.xy, float2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
-                        float2 rot = float2(cos(jit), sin(jit));
-                        half4 blurred = BlurSprite(uv, p.x, rot);
+                        half4 blurred = BlurSprite(uv, p.x);
                         half4 mixed   = lerp(sprite, blurred, saturate(p.y));
                         layer = half4(mixed.rgb * c.rgb * IN.color.rgb, mixed.a * c.a);
                     }

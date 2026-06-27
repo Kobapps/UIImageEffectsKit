@@ -5,6 +5,13 @@ All notable changes to **UI Image Effects Kit** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-06-27
+
+### Changed
+- **Smoother Blur.** The 1.4.0 blur used a per-fragment rotation to hide tap structure, which read as
+  grain. Replaced it with a denser **64-tap** kernel that stays smooth on its own (no dither, no grain),
+  and tightened the radius slider to the clean range (0–0.12).
+
 ## [1.4.0] - 2026-06-27
 
 ### Added
@@ -88,6 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uniforms; the effect data is now re-applied to the wrapped material in
   `GetModifiedMaterial`, so masked SDF images match unmasked ones.
 
+[1.4.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.4.1
 [1.4.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.4.0
 [1.3.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.3.0
 [1.2.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.2.0
