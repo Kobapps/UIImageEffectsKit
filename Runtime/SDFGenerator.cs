@@ -63,15 +63,48 @@ namespace SDFImageKit
         /// when done, unless handing it to the runtime cache).
         /// </summary>
         public static SDFData GenerateData(Texture source, SDFGenerationParams p)
+            => GenerateData(source, p, null);
+
+        /// <summary>
+        /// Bake a field for a sprite's region of a texture. When <paramref name="sourceRect"/> is a
+        /// sub-rect (an atlas-packed or sheet-sliced sprite), the field is baked from ONLY that region
+        /// so it covers just the sprite, not the whole atlas — otherwise the sprite lands off-centre in
+        /// a giant field (breaking shape-following glow) and wastes memory. <c>null</c> / the full rect
+        /// bakes the whole texture (the original behaviour, GPU path allowed).
+        /// </summary>
+        public static SDFData GenerateData(Texture source, SDFGenerationParams p, RectInt? sourceRect)
         {
-            var field = GenerateField(source, p, out var padNorm);
+            if (source == null) return null;
+
+            bool crop = sourceRect.HasValue &&
+                (sourceRect.Value.x != 0 || sourceRect.Value.y != 0 ||
+                 sourceRect.Value.width != source.width || sourceRect.Value.height != source.height);
+
+            Texture2D field;
+            Vector2 padNorm;
+            Vector2Int srcSize;
+
+            if (crop && source is Texture2D tex2D)
+            {
+                // Crop to the sprite's pixels, then bake on the CPU (we already need the pixels to crop,
+                // and the glow fallback requests padding which the GPU path can't honour anyway).
+                var full = SDFGeneratorCPU.ReadPixels(tex2D, out int fw, out int fh);
+                var sub = SDFGeneratorCPU.CropPixels(full, fw, fh, sourceRect.Value, out int cw, out int ch);
+                field = SDFGeneratorCPU.Generate(sub, cw, ch, p, out padNorm);
+                srcSize = new Vector2Int(cw, ch);
+            }
+            else
+            {
+                field = GenerateField(source, p, out padNorm);
+                srcSize = new Vector2Int(source.width, source.height);
+            }
             if (field == null) return null;
 
             var data = ScriptableObject.CreateInstance<SDFData>();
             data.name = (source != null ? source.name : "SDF") + "_SDFData";
             data.field = field;
             data.spread = Mathf.Clamp(p.spread, 0.001f, 1f);
-            data.sourceSize = new Vector2Int(source.width, source.height);
+            data.sourceSize = srcSize;
             data.padding = padNorm;
             return data;
         }

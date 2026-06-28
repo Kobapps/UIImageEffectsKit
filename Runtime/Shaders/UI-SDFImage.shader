@@ -11,7 +11,7 @@ Shader "UI/SDF Image"
 
         _SDFTex ("SDF Field", 2D) = "black" {}
         _SDFRect ("SDF UV Remap (sx,sy,ox,oy)", Vector) = (1,1,0,0)
-        _SDFExtend ("SDF Extend (sx,sy)", Vector) = (0,0,0,0)
+        _SDFExtend ("SDF Extend (sx,sy, contentScaleX,Y)", Vector) = (0,0,1,1)
         _SpriteRect ("Sprite UV Rect (uMin,vMin,uMax,vMax)", Vector) = (0,0,1,1)
 
         // --- uGUI stencil / mask plumbing ---
@@ -137,6 +137,11 @@ Shader "UI/SDF Image"
                 // GPUs and smudges the result (it's invisible in the editor, which runs half as float).
                 float3 accRGB = float3(0, 0, 0);
                 float accA = 0.0, wsum = 0.0;
+                // `r` is a fraction of the SPRITE, but `uv` is in texture space — on a packed atlas
+                // sprite the sprite occupies only a sub-rect of the texture, so scale the radius by the
+                // sprite's UV size (no-op for a full-texture sprite, where this is (1,1)). Without this
+                // the taps overshoot wildly and all clamp onto the sprite-rect edges (ring artifacts).
+                float2 spriteSize = _SpriteRect.zw - _SpriteRect.xy;
                 [loop]
                 for (int i = 0; i < SDF_BLUR_TAPS; i++)
                 {
@@ -144,7 +149,7 @@ Shader "UI/SDF Image"
                     float ti = fi / (float)SDF_BLUR_TAPS;     // 0..1
                     float rr = sqrt(ti);                      // even area coverage
                     float th = fi * golden;
-                    float2 o = float2(cos(th), sin(th)) * (rr * r);
+                    float2 o = float2(cos(th), sin(th)) * (rr * r) * spriteSize;
                     float w  = exp(-3.0 * rr * rr);           // Gaussian falloff (rr is already normalized)
                     // Clamp the tap to the sprite's own region so a packed (atlas) sprite can't sample
                     // its neighbours; for a full-texture sprite this is just [0,1] (a no-op).
@@ -182,13 +187,20 @@ Shader "UI/SDF Image"
             fixed4 frag(v2f IN) : SV_Target
             {
                 float2 uv = IN.texcoord;
-                half4 sprite = (tex2D(_MainTex, uv) + _TextureSampleAdd);
+                // Sample the sprite CLAMPED to its own UV rect: the mesh is expanded past the sprite for
+                // shadow/glow margins, so `uv` runs outside the sprite — on a packed atlas that would read
+                // neighbouring sprites (stray fragments / a faint box at the rect edge). For a full-texture
+                // sprite _SpriteRect is (0,0,1,1), so this is a no-op.
+                half4 sprite = (tex2D(_MainTex, clamp(uv, _SpriteRect.xy, _SpriteRect.zw)) + _TextureSampleAdd);
                 half ia = IN.color.a;
 
             #ifdef SDFIMAGE_SDF
                 float2 sdfUV = uv * _SDFRect.xy + _SDFRect.zw;
                 // Normalized signed distance: 0 = edge, +1 = `spread` inside, -1 = `spread` outside.
-                float t = (tex2D(_SDFTex, sdfUV).a - 0.5) * 2.0;
+                // Sample the field clamped to [0,1]: in the expanded margin sdfUV leaves the field, and a
+                // Repeat sampler would wrap the silhouette back in (false coverage). The raw sdfUV is kept
+                // for the glow's box/radial extrapolation below.
+                float t = (tex2D(_SDFTex, saturate(sdfUV)).a - 0.5) * 2.0;
                 float aa = max(fwidth(t), 1e-4);   // computed in uniform flow (outside the loop)
 
                 half4 col = half4(0, 0, 0, 0);
@@ -226,9 +238,13 @@ Shader "UI/SDF Image"
                     }
                     else if (ty == 2) // Shadow: offset = p.xy, softness = p.z, dilate = p.w
                     {
-                        float2 shUV = sdfUV - p.xy * _SDFRect.xy;
-                        // tex2Dlod: explicit LOD avoids undefined derivatives inside the loop.
-                        float st = (tex2Dlod(_SDFTex, float4(shUV, 0, 0)).a - 0.5) * 2.0 + p.w;
+                        // Offset is a fraction of the sprite -> use the field content scale (_SDFExtend.zw),
+                        // NOT _SDFRect.xy (which also carries the atlas remap scale and would over-shift
+                        // a packed sprite).
+                        float2 shUV = sdfUV - p.xy * _SDFExtend.zw;
+                        // tex2Dlod: explicit LOD avoids undefined derivatives inside the loop. saturate:
+                        // same anti-wrap clamp as the main field sample (the offset can push shUV outside).
+                        float st = (tex2Dlod(_SDFTex, float4(saturate(shUV), 0, 0)).a - 0.5) * 2.0 + p.w;
                         float saa = aa + p.z;
                         float scov = smoothstep(-saa, saa, st);
                         layer = half4(c.rgb, c.a * scov);
@@ -242,8 +258,11 @@ Shader "UI/SDF Image"
                         // a soft round halo — instead of by distance-to-the-field-box, which would read
                         // as a square. We blend box->radial with how far outside the box we are so the
                         // two regions join smoothly.
-                        float2 center  = 0.5 * _SDFRect.xy + _SDFRect.zw;          // sprite centre (SDF-UV)
-                        float2 halfExt = 0.5 * abs(_SDFRect.xy) * _SDFExtend.xy;   // sprite half-size (spread units)
+                        // The field content is always centred at sdfUV 0.5 with half-width
+                        // 0.5*contentScale, regardless of any atlas remap — so use those, NOT _SDFRect
+                        // (which carries the atlas scale and would mis-place/scale the halo on a packed sprite).
+                        float2 center  = float2(0.5, 0.5);                         // sprite centre (SDF-UV)
+                        float2 halfExt = 0.5 * _SDFExtend.zw * _SDFExtend.xy;      // sprite half-size (spread units)
                         float2 rel     = (sdfUV - center) * _SDFExtend.xy;         // offset from centre (spread units)
                         float2 q       = max(0.0, max(-sdfUV, sdfUV - 1.0));
                         float boxD     = length(q * _SDFExtend.xy);                // distance outside the field box
@@ -265,10 +284,10 @@ Shader "UI/SDF Image"
                             // Crisp edge: keep the blurred interior colour but take the silhouette alpha
                             // from the SDF, so the edge is perfectly smooth (no tap structure). The
                             // feather widens with the blur radius. Convert the UV radius into the field's
-                            // signed-distance (t) units; use the MIN axis so the feather (= radius/spread)
-                            // is isotropic regardless of the sprite's aspect ratio.
-                            float fth = p.x * min(abs(_SDFRect.x) * _SDFExtend.x,
-                                                  abs(_SDFRect.y) * _SDFExtend.y);
+                            // signed-distance (t) units via the content scale (_SDFExtend.zw, atlas-safe);
+                            // use the MIN axis so the feather (= radius/spread) is isotropic across aspect.
+                            float fth = p.x * min(_SDFExtend.z * _SDFExtend.x,
+                                                  _SDFExtend.w * _SDFExtend.y);
                             a = smoothstep(-(aa + fth), (aa + fth), t);
                         }
                         layer = half4(mixed.rgb * c.rgb * IN.color.rgb, a * c.a);
@@ -277,9 +296,13 @@ Shader "UI/SDF Image"
                     {
                         // A sheen band sweeping across the sprite, clipped to its silhouette. As position
                         // goes 0..1 the band's centre travels from just off one side to just off the other.
+                        // Use sprite-LOCAL uv (uv is in texture space; on a packed atlas the sprite is only
+                        // a sub-rect, so the raw uv would put the band off the sprite entirely → no shine).
+                        // For a full-texture sprite _SpriteRect is (0,0,1,1), so luv == uv.
+                        float2 luv = (uv - _SpriteRect.xy) / max(_SpriteRect.zw - _SpriteRect.xy, 1e-4);
                         float2 dir = float2(cos(p.z), sin(p.z));
                         float ext  = 0.5 * (abs(dir.x) + abs(dir.y));   // half sweep extent of the UV square
-                        float proj = dot(uv - 0.5, dir);
+                        float proj = dot(luv - 0.5, dir);
                         float ctr  = lerp(-ext - p.y, ext + p.y, saturate(p.x));
                         float d    = abs(proj - ctr);
                         float w0   = p.y * (1.0 - p.w);                 // inner edge (full bright)

@@ -5,6 +5,30 @@ All notable changes to **UI Image Effects Kit** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.4] - 2026-06-28
+
+### Fixed
+- **Effects on atlas-packed sprites now match the editor on device.** Several effects are measured in
+  sprite space but were fed atlas-space coordinates once a sprite was packed into a Sprite Atlas — so
+  they looked right in the editor (which renders the *un-packed* sprite) and broke on device (which
+  renders the *packed* one):
+  - **Glow / Shine filling the whole quad, or vanishing.** A glow larger than the baked field falls
+    back to a runtime-generated field, which was baked from the *entire atlas texture* — leaving the
+    sprite as a small off-centre region of a huge field (and wasting a lot of memory: a 4K atlas baked
+    a ~33 MB field). The runtime field is now baked from **only the sprite's atlas region**, and the
+    field↔mesh UV remap is applied to runtime fields too (previously only to baked *source* fields), so
+    a packed sprite fills its field exactly as it does un-packed.
+  - **Blur ring / edge artifacts.** The blur's sample radius (a fraction of the sprite) was applied in
+    texture space, so on a packed sprite the taps overshot and all clamped onto the sprite-rect edges.
+    The radius is now scaled by the sprite's atlas-UV size.
+  - **Shine sweeping off the sprite** (no sheen visible) — it used raw texture UVs; it now uses
+    sprite-local UVs.
+  - **Stray atlas fragments / a faint box** around glows: the expanded effect mesh sampled neighbouring
+    atlas sprites. The sprite-texture read is now clamped to the sprite's own UV rect, and the field is
+    sampled clamped so the expanded margin always reads as "outside".
+  - **Exaggerated shadow offset** on packed sprites — the offset (and glow centre/extent and crisp-blur
+    feather) now use the field's content scale instead of the atlas remap scale.
+
 ## [1.6.3] - 2026-06-28
 
 ### Fixed
@@ -152,6 +176,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uniforms; the effect data is now re-applied to the wrapped material in
   `GetModifiedMaterial`, so masked SDF images match unmasked ones.
 
+[1.6.4]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.6.4
 [1.6.3]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.6.3
 [1.6.2]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.6.2
 [1.6.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.6.1

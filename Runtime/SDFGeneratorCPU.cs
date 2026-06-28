@@ -188,6 +188,32 @@ namespace SDFImageKit
         // -------------------------------------------------------------------------------------
 
         /// <summary>
+        /// Extract a sub-rectangle from a row-major (bottom-up) RGBA32 pixel buffer. Used to bake a
+        /// runtime field for one atlas sprite from its region of the shared atlas texture (instead of
+        /// the whole atlas). <paramref name="rect"/> is in source pixels (Unity's bottom-left origin),
+        /// clamped to the buffer.
+        /// </summary>
+        public static Color32[] CropPixels(Color32[] src, int srcW, int srcH, RectInt rect,
+            out int outW, out int outH)
+        {
+            int x0 = Mathf.Clamp(rect.xMin, 0, srcW);
+            int y0 = Mathf.Clamp(rect.yMin, 0, srcH);
+            int x1 = Mathf.Clamp(rect.xMax, 0, srcW);
+            int y1 = Mathf.Clamp(rect.yMax, 0, srcH);
+            outW = Mathf.Max(1, x1 - x0);
+            outH = Mathf.Max(1, y1 - y0);
+            var dst = new Color32[outW * outH];
+            for (int y = 0; y < outH; y++)
+            {
+                int srcRow = (y0 + y) * srcW + x0;
+                int dstRow = y * outW;
+                for (int x = 0; x < outW; x++)
+                    dst[dstRow + x] = src[srcRow + x];
+            }
+            return dst;
+        }
+
+        /// <summary>
         /// Read a texture's pixels even when it is not marked Read/Write enabled, by blitting
         /// through a temporary RenderTexture. Works for atlas and compressed textures at runtime.
         /// </summary>

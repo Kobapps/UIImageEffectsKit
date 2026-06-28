@@ -46,6 +46,7 @@ namespace SDFImageKit
         private bool m_FieldIsSource;          // true => field covers original source (needs atlas remap)
         private bool m_RuntimeAcquired;        // true => we hold a ref in SDFRuntimeCache
         private Texture m_RuntimeSourceTex;    // texture we acquired runtime data for
+        private RectInt m_RuntimeAcquiredRect; // sprite's pixel sub-rect we baked (the atlas region)
         private SDFGenerationParams m_RuntimeAcquiredParams;
         private Sprite m_LastResolvedSprite;
         private SDFData m_LastBaked;
@@ -484,6 +485,7 @@ namespace SDFImageKit
             bool fieldIsSource = false;
             bool acquired = false;
             Texture acqTex = null;
+            RectInt acqRect = default;
             SDFGenerationParams acqParams = default;
 
             if (s != null)
@@ -510,7 +512,14 @@ namespace SDFImageKit
                     float r = Mathf.Min(1f, reach * 1.05f);
                     if (r > acqParams.spread) acqParams.spread = r;
                     if (r > acqParams.padding) acqParams.padding = r;
-                    newData = SDFRuntimeCache.Acquire(acqTex, acqParams);
+                    // Bake from ONLY this sprite's region of the texture. For a packed atlas sprite
+                    // s.texture is the whole atlas — baking it whole gives a huge field with the sprite
+                    // off-centre (breaks shape-following glow, wastes memory). textureRect is the
+                    // sprite's pixels within s.texture; for a stand-alone texture it's the full rect.
+                    Rect tr = s.textureRect;
+                    acqRect = new RectInt(Mathf.RoundToInt(tr.x), Mathf.RoundToInt(tr.y),
+                        Mathf.RoundToInt(tr.width), Mathf.RoundToInt(tr.height));
+                    newData = SDFRuntimeCache.Acquire(acqTex, acqRect, acqParams);
                     acquired = newData != null;
                     fieldIsSource = false;
                 }
@@ -530,13 +539,14 @@ namespace SDFImageKit
             m_FieldIsSource = fieldIsSource;
             m_RuntimeAcquired = acquired;
             m_RuntimeSourceTex = acquired ? acqTex : null;
+            m_RuntimeAcquiredRect = acqRect;
             m_RuntimeAcquiredParams = acqParams;
         }
 
         private void ReleaseRuntimeData()
         {
             if (m_RuntimeAcquired && m_RuntimeSourceTex != null)
-                SDFRuntimeCache.Release(m_RuntimeSourceTex, m_RuntimeAcquiredParams);
+                SDFRuntimeCache.Release(m_RuntimeSourceTex, m_RuntimeAcquiredRect, m_RuntimeAcquiredParams);
             m_RuntimeAcquired = false;
             m_RuntimeSourceTex = null;
         }
@@ -646,22 +656,34 @@ namespace SDFImageKit
             // Base remap: sprite UV0 -> normalized content [0,1].
             float sx = 1f, sy = 1f, ox = 0f, oy = 0f;
 
-            if (m_FieldIsSource && s != null && m_ActiveData != null && s.texture != null)
+            if (s != null && s.texture != null)
             {
+                // The mesh's UV0 are in the sprite's LIVE texture space — [0,1] for a stand-alone
+                // texture, but a sub-rect of the atlas when the sprite is packed. Either way we must
+                // remap UV0 -> the field's normalized space. This applies to BOTH a runtime field
+                // (which spans the sprite) and an embedded source field (which spans the source
+                // texture) — only the target sub-rect differs. (Previously the remap was applied
+                // only to source fields, so a runtime field on a PACKED sprite sampled a tiny wrong
+                // corner of the field: glow filled the whole quad, shine vanished.)
                 Texture tex = s.texture;
                 float texW = tex.width, texH = tex.height;
                 Rect tr = s.textureRect;
                 Vector2 uv0Min = new Vector2(tr.xMin / texW, tr.yMin / texH);
                 Vector2 uv0Max = new Vector2(tr.xMax / texW, tr.yMax / texH);
-
-                Rect rr = s.rect;
-                float srcW = Mathf.Max(1, m_ActiveData.sourceSize.x);
-                float srcH = Mathf.Max(1, m_ActiveData.sourceSize.y);
-                Vector2 fMin = new Vector2(rr.xMin / srcW, rr.yMin / srcH);
-                Vector2 fMax = new Vector2(rr.xMax / srcW, rr.yMax / srcH);
-
                 float dx = Mathf.Max(1e-6f, uv0Max.x - uv0Min.x);
                 float dy = Mathf.Max(1e-6f, uv0Max.y - uv0Min.y);
+
+                // Target span in field space: [0,1] for a runtime field (covers the sprite); the
+                // sprite's fraction of the source for an embedded source field.
+                Vector2 fMin = Vector2.zero, fMax = Vector2.one;
+                if (m_FieldIsSource && m_ActiveData != null)
+                {
+                    Rect rr = s.rect;
+                    float srcW = Mathf.Max(1, m_ActiveData.sourceSize.x);
+                    float srcH = Mathf.Max(1, m_ActiveData.sourceSize.y);
+                    fMin = new Vector2(rr.xMin / srcW, rr.yMin / srcH);
+                    fMax = new Vector2(rr.xMax / srcW, rr.yMax / srcH);
+                }
                 sx = (fMax.x - fMin.x) / dx; sy = (fMax.y - fMin.y) / dy;
                 ox = fMin.x - uv0Min.x * sx; oy = fMin.y - uv0Min.y * sy;
             }
@@ -674,21 +696,28 @@ namespace SDFImageKit
         }
 
         /// <summary>
-        /// Per-axis factor converting "distance outside the SDF box" (in SDF-UV units) into the
-        /// shader's normalized spread units, so a glow can extrapolate the clamped field beyond its
-        /// baked range and extend past the sprite rect. = fieldSizeTexels / spreadTexels.
+        /// xy: per-axis factor converting "distance outside the SDF box" (in SDF-UV units) into the
+        /// shader's normalized spread units (= fieldSizeTexels / spreadTexels), so a glow can extrapolate
+        /// the clamped field beyond its baked range.
+        /// zw: the field's CONTENT scale (1 - 2*padding) per axis — how much SDF-UV one sprite-fraction
+        /// spans. Used by effects that measure in sprite space (shadow offset, glow centre/extent, crisp
+        /// blur feather) INSTEAD of <c>_SDFRect.xy</c>, which also carries the atlas remap scale and would
+        /// be wrong for sprites packed into an atlas (it works in the editor because there the sprite is
+        /// un-packed, so the atlas scale is 1).
         /// </summary>
         private Vector4 ComputeSDFExtend()
         {
             var data = m_ActiveData;
-            if (data == null || data.field == null) return Vector4.zero;
+            if (data == null || data.field == null) return new Vector4(0f, 0f, 1f, 1f);
             float fw = Mathf.Max(1, data.field.width);
             float fh = Mathf.Max(1, data.field.height);
             Vector2 pad = data.padding;
-            float contentW = fw * Mathf.Max(1e-4f, 1f - 2f * pad.x);
-            float contentH = fh * Mathf.Max(1e-4f, 1f - 2f * pad.y);
+            float kx = Mathf.Max(1e-4f, 1f - 2f * pad.x);
+            float ky = Mathf.Max(1e-4f, 1f - 2f * pad.y);
+            float contentW = fw * kx;
+            float contentH = fh * ky;
             float spreadPix = Mathf.Max(0.5f, data.spread * Mathf.Min(contentW, contentH));
-            return new Vector4(fw / spreadPix, fh / spreadPix, 0f, 0f);
+            return new Vector4(fw / spreadPix, fh / spreadPix, kx, ky);
         }
 
         /// <summary>
