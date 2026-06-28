@@ -12,6 +12,7 @@ Shader "UI/SDF Image"
         _SDFTex ("SDF Field", 2D) = "black" {}
         _SDFRect ("SDF UV Remap (sx,sy,ox,oy)", Vector) = (1,1,0,0)
         _SDFExtend ("SDF Extend (sx,sy)", Vector) = (0,0,0,0)
+        _SpriteRect ("Sprite UV Rect (uMin,vMin,uMax,vMax)", Vector) = (0,0,1,1)
 
         // --- uGUI stencil / mask plumbing ---
         _StencilComp ("Stencil Comparison", Float) = 8
@@ -99,6 +100,7 @@ Shader "UI/SDF Image"
             sampler2D _SDFTex;
             float4 _SDFRect;
             float4 _SDFExtend;
+            float4 _SpriteRect;   // sprite's valid region in _MainTex (uMin,vMin,uMax,vMax)
 
             // Effect stack (composited 0..count-1, index 0 = back).
             float4 _FxColor[SDF_MAX_FX];
@@ -139,7 +141,10 @@ Shader "UI/SDF Image"
                     float th = fi * golden;
                     float2 o = float2(cos(th), sin(th)) * (rr * r);
                     float w  = exp(-3.0 * rr * rr);           // Gaussian falloff (rr is already normalized)
-                    float4 s = tex2Dlod(_MainTex, float4(uv + o, 0, 0)) + _TextureSampleAdd;
+                    // Clamp the tap to the sprite's own region so a packed (atlas) sprite can't sample
+                    // its neighbours; for a full-texture sprite this is just [0,1] (a no-op).
+                    float2 tapUV = clamp(uv + o, _SpriteRect.xy, _SpriteRect.zw);
+                    float4 s = tex2Dlod(_MainTex, float4(tapUV, 0, 0)) + _TextureSampleAdd;
                     accRGB += s.rgb * s.a * w;                // premultiplied — colour weighted by coverage
                     accA   += s.a * w;
                     wsum   += w;

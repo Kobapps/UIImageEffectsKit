@@ -19,6 +19,9 @@ namespace SDFImageKit
         // (sx, sy, 0, 0): converts "distance outside the field box" (SDF-UV units) into spread units,
         // so a glow can extrapolate the clamped field and reach beyond the sprite rect.
         public static readonly int SDFExtend = Shader.PropertyToID("_SDFExtend");
+        // (uMin, vMin, uMax, vMax): the sprite's valid region in _MainTex. The blur clamps its taps to
+        // this so an atlas-packed sprite never samples its neighbours.
+        public static readonly int SpriteRect = Shader.PropertyToID("_SpriteRect");
 
         // Effect stack (parallel arrays, composited 0..count-1 back-to-front)
         public static readonly int FxColor  = Shader.PropertyToID("_FxColor");

@@ -5,6 +5,17 @@ All notable changes to **UI Image Effects Kit** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-06-28
+
+### Fixed
+- **Blur on atlased sprites** no longer bleeds in the neighbouring sprites — the blur clamps its taps to
+  the sprite's own UV region (`_SpriteRect`), so a packed atlas sprite can't sample its neighbours.
+
+### Docs
+- Documented the **Sprite Atlas** requirements for SDF effect sprites — **Allow Rotation OFF** and **Tight
+  Packing OFF** — and the "fine in the editor, broken on device" cause: Sprite Atlas V2 packs at build
+  time only, so the editor renders the un-packed sprite while the player renders the packed one.
+
 ## [1.6.1] - 2026-06-28
 
 ### Fixed
@@ -131,6 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uniforms; the effect data is now re-applied to the wrapped material in
   `GetModifiedMaterial`, so masked SDF images match unmasked ones.
 
+[1.6.2]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.6.2
 [1.6.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.6.1
 [1.6.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.6.0
 [1.5.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.5.1

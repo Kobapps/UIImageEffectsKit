@@ -231,9 +231,18 @@ GPU compute kernel, and the shader all share this convention.
   outline / glow / shadow show right at the edges of full-bleed art (e.g. 9-slice frames). **Sliced**
   gives the most accurate edge effects; **Tiled** is best-effort. For effects larger than the padding,
   raise **Padding** when baking.
-- **Atlas rotation:** keep **Allow Rotation off** for packed atlases — a baked source-space field
-  can't be remapped onto a rotated atlas entry, so the component safely falls back to a plain Image
-  there. Runtime-generated fields are immune (they cover the live atlas texture directly).
+- **Sprite Atlases — important:** an embedded SDF effect-sprite that gets packed into a Sprite Atlas
+  needs the atlas set up so the field still lines up and the sprite keeps its full quad:
+  - **Allow Rotation → OFF.** A baked source-space field can't be remapped onto a rotated atlas entry.
+  - **Tight Packing → OFF.** Tight packing strips the Full-Rect mesh that outline / glow / shadow render
+    into, so they'd be clipped to the silhouette.
+  
+  With both on (the Unity defaults), effects look fine **in the editor but break on a built player** —
+  because **Sprite Atlas V2 packs only at build time** (Editor ▸ Project Settings ▸ Editor ▸ *Sprite
+  Packer* = "Sprite Atlas V2"), so the editor renders the un-packed sprite and the device renders the
+  packed one. If you don't need atlasing for these sprites, simplest is to **leave them out of the
+  atlas**. The blur clamps its samples to the sprite's own region, so it won't bleed neighbouring atlas
+  sprites. Runtime-generated fields are immune (they cover the live atlas texture directly).
 
 ---
 

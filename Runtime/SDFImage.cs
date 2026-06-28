@@ -595,6 +595,7 @@ namespace SDFImageKit
                 mat.SetTexture(SDFShaderIDs.SDFTex, m_ActiveData.field);
                 mat.SetVector(SDFShaderIDs.SDFRect, ComputeSDFRect(sp));
                 mat.SetVector(SDFShaderIDs.SDFExtend, ComputeSDFExtend());
+                mat.SetVector(SDFShaderIDs.SpriteRect, ComputeSpriteRect(sp));
             }
 
             // Effect sizes are authored in fixed reference units; the field may be baked with a larger
@@ -688,6 +689,19 @@ namespace SDFImageKit
             float contentH = fh * Mathf.Max(1e-4f, 1f - 2f * pad.y);
             float spreadPix = Mathf.Max(0.5f, data.spread * Mathf.Min(contentW, contentH));
             return new Vector4(fw / spreadPix, fh / spreadPix, 0f, 0f);
+        }
+
+        /// <summary>
+        /// The sprite's valid UV region in <c>_MainTex</c> (uMin, vMin, uMax, vMax). The whole [0,1] for
+        /// a full-texture sprite; a sub-rect for a sprite packed into an atlas (or a multi-sprite sheet).
+        /// The blur clamps its taps to this so it never samples neighbouring atlas sprites.
+        /// </summary>
+        private static Vector4 ComputeSpriteRect(Sprite s)
+        {
+            if (s == null || s.texture == null) return new Vector4(0f, 0f, 1f, 1f);
+            Rect tr = s.textureRect;
+            float tw = Mathf.Max(1, s.texture.width), th = Mathf.Max(1, s.texture.height);
+            return new Vector4(tr.xMin / tw, tr.yMin / th, tr.xMax / tw, tr.yMax / th);
         }
 
         /// <summary>Largest <see cref="SDFGlowEffect.width"/> among enabled glows (0 if none).</summary>
