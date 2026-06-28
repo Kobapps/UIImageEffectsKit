@@ -5,6 +5,14 @@ All notable changes to **UI Image Effects Kit** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-06-28
+
+### Fixed
+- **Mobile (Android / OpenGL ES) smudging.** On GPUs where `half` is real 16-bit float, two paths lost
+  precision (invisible in the editor, which runs `half` as full float): the blur summed its 64 taps in
+  `half`, and the RectMask2D clip-rect coordinates were carried in `half`. Both now use full `float`. No
+  change on desktop. (The core SDF distance/coverage math was already full-precision.)
+
 ## [1.6.0] - 2026-06-27
 
 ### Added
@@ -123,6 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uniforms; the effect data is now re-applied to the wrapped material in
   `GetModifiedMaterial`, so masked SDF images match unmasked ones.
 
+[1.6.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.6.1
 [1.6.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.6.0
 [1.5.1]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.5.1
 [1.5.0]: https://github.com/Kobapps/UIImageEffectsKit/releases/tag/1.5.0

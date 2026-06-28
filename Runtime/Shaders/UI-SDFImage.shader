@@ -85,7 +85,7 @@ Shader "UI/SDF Image"
                 fixed4 color         : COLOR;
                 float2 texcoord      : TEXCOORD0;
                 float4 worldPosition : TEXCOORD1;
-                half4  mask          : TEXCOORD2;
+                float4 mask          : TEXCOORD2;   // float (not half): clip coords need highp on mobile
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -126,7 +126,9 @@ Shader "UI/SDF Image"
             inline half4 BlurSprite(float2 uv, float r)
             {
                 const float golden = 2.39996323;   // radians (137.5 degrees)
-                half3 accRGB = half3(0, 0, 0);
+                // Accumulate in FULL float — summing 64 taps in half (fp16) loses precision on mobile
+                // GPUs and smudges the result (it's invisible in the editor, which runs half as float).
+                float3 accRGB = float3(0, 0, 0);
                 float accA = 0.0, wsum = 0.0;
                 [loop]
                 for (int i = 0; i < SDF_BLUR_TAPS; i++)
@@ -137,13 +139,13 @@ Shader "UI/SDF Image"
                     float th = fi * golden;
                     float2 o = float2(cos(th), sin(th)) * (rr * r);
                     float w  = exp(-3.0 * rr * rr);           // Gaussian falloff (rr is already normalized)
-                    half4 s  = tex2Dlod(_MainTex, float4(uv + o, 0, 0)) + _TextureSampleAdd;
+                    float4 s = tex2Dlod(_MainTex, float4(uv + o, 0, 0)) + _TextureSampleAdd;
                     accRGB += s.rgb * s.a * w;                // premultiplied — colour weighted by coverage
                     accA   += s.a * w;
                     wsum   += w;
                 }
-                half  a   = accA / max(wsum, 1e-4);           // blurred coverage
-                half3 rgb = accRGB / max(accA, 1e-4);         // un-premultiplied colour (no dark fringe)
+                float  a   = accA / max(wsum, 1e-4);          // blurred coverage
+                float3 rgb = accRGB / max(accA, 1e-4);        // un-premultiplied colour (no dark fringe)
                 return half4(rgb, a);
             }
 
@@ -160,8 +162,8 @@ Shader "UI/SDF Image"
                 pixelSize /= float2(1, 1) * abs(mul((float2x2)UNITY_MATRIX_P, _ScreenParams.xy));
 
                 float4 clampedRect = clamp(_ClipRect, -2e10, 2e10);
-                OUT.mask = half4(v.vertex.xy * 2 - clampedRect.xy - clampedRect.zw,
-                    0.25 / (0.25 * half2(_UIMaskSoftnessX, _UIMaskSoftnessY) + abs(pixelSize.xy)));
+                OUT.mask = float4(v.vertex.xy * 2 - clampedRect.xy - clampedRect.zw,
+                    0.25 / (0.25 * float2(_UIMaskSoftnessX, _UIMaskSoftnessY) + abs(pixelSize.xy)));
 
                 OUT.color = v.color * _Color;
                 return OUT;
@@ -287,7 +289,7 @@ Shader "UI/SDF Image"
             #endif
 
             #ifdef UNITY_UI_CLIP_RECT
-                half2 m = saturate((_ClipRect.zw - _ClipRect.xy - abs(IN.mask.xy)) * IN.mask.zw);
+                float2 m = saturate((_ClipRect.zw - _ClipRect.xy - abs(IN.mask.xy)) * IN.mask.zw);
                 color.a *= m.x * m.y;
             #endif
 
