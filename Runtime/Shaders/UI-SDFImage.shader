@@ -68,7 +68,12 @@ Shader "UI/SDF Image"
 
             #pragma multi_compile_local _ UNITY_UI_CLIP_RECT
             #pragma multi_compile_local _ UNITY_UI_ALPHACLIP
-            #pragma shader_feature_local SDFIMAGE_SDF
+            // multi_compile (NOT shader_feature): the SDFIMAGE_SDF keyword is toggled at runtime via
+            // Material.EnableKeyword on a per-instance material, so no material ASSET references it. A
+            // shader_feature variant with no asset reference is STRIPPED from player builds, which left
+            // devices with only the "off" variant (plain sprite, no effects) while the editor — which
+            // compiles variants on demand — looked fine. multi_compile always ships both variants.
+            #pragma multi_compile_local _ SDFIMAGE_SDF
 
             #define SDF_MAX_FX 8
 
